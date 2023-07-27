@@ -1,0 +1,136 @@
+import ase
+from ase.build import separate
+
+import numpy as np
+import pytest
+
+from Src.main import *
+
+
+@pytest.fixture()
+def ester_hydrolysis_reaction():
+    numbers = np.array([6, 1, 6, 1, 1, 8, 8, 6, 1, 1, 1, 8, 1])
+    positions = np.array([[-0.98311, 3.24056, 3.04904],
+                          [-0.65912, 2.21241, 3.22234],
+                          [-0.1366, 3.89685, 1.97282],
+                          [-2.03143, 3.21908, 2.74231],
+                          [-0.91353, 3.79804, 3.9853],
+                          [-0.6342, 4.3413, 0.95941],
+                          [1.19922, 3.98387, 2.19841],
+                          [1.83754, 3.46194, 3.3907],
+                          [2.90943, 3.66713, 3.32774],
+                          [1.4297, 3.95553, 4.27688],
+                          [1.68243, 2.3814, 3.45031],
+                          [-0.92797, -0.55259, 0.37855],
+                          [-0.80599, -0.50696, 1.31958]])
+    cell = np.zeros((3, 3))
+    pbc = np.array([False, False, False])
+
+    reactant = ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
+
+    positions = np.array([[-4.01608, 0.23907, 0.06919],
+                          [-3.67274, -0.78719, 0.21706],
+                          [-3.13098, 0.94876, -0.93002],
+                          [-5.04885, 0.21402, -0.28706],
+                          [-3.9934, 0.75538, 1.03165],
+                          [-3.52226, 1.34984, -2.00601],
+                          [2.13267, 2.28495, 1.85001],
+                          [0.90251, 2.40252, 2.50429],
+                          [0.56829, 1.41042, 2.87807],
+                          [1.02182, 3.07934, 3.37522],
+                          [0.14375, 2.84389, 1.82226],
+                          [-1.89519, 1.08853, -0.52895],
+                          [-1.82089, 0.69183, 0.35564]])
+
+    product = ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
+
+    return reactant, product
+
+
+def test_get_indices():
+    arr = np.array(list(range(10)))
+    values = [1, 5, 9]
+
+    expected = np.array([1, 5, 9])
+    result = get_indices(arr, values)
+
+    assert np.all(result == expected)
+
+
+def test_get_bond_forming_atoms(ester_hydrolysis_reaction):
+    reactant, product = ester_hydrolysis_reaction
+
+    ester, oh = separate_molecules(reactant)
+    acid, ome = separate_molecules(product)
+
+    matrix = get_reactivity_matrix(reactant, product)
+    print(type(matrix), matrix)
+    ester_result = get_bond_forming_atoms(ester, oh, True, matrix)
+    oh_result = get_bond_forming_atoms(oh, ester, True, matrix)
+
+    acid_result = get_bond_forming_atoms(acid, ome, False, matrix)
+    ome_result = get_bond_forming_atoms(ome, acid, False, matrix)
+
+    ester_expected = np.array([2])
+    oh_expected = np.array([11])
+    acid_expected = np.array([2])
+    ome_expected = np.array([6])
+
+    assert np.all(ester_result == ester_expected)
+    assert np.all(oh_result == oh_expected)
+    assert np.all(acid_result == acid_expected)
+    assert np.all(ome_result == ome_expected)
+
+
+def test_get_reactive_atoms(ester_hydrolysis_reaction):
+    reactant, product = ester_hydrolysis_reaction
+
+    ester = separate(reactant)[0]
+    acid = separate(product)[0]
+
+    matrix = get_reactivity_matrix(reactant, product)
+    result = get_reactive_atoms(ester, acid, matrix)
+    expected = np.array([3])
+
+    assert np.all(result == expected)
+
+
+def test_get_reactivity_matrix(ester_hydrolysis_reaction):
+    reactant, product = ester_hydrolysis_reaction
+    matrix = get_reactivity_matrix(reactant, product)
+
+    expected = np.zeros((13, 13), dtype=np.int8)
+    expected[2, 6] = -1
+    expected[2, 11] = 1
+
+    assert np.all(matrix.todense() == expected)
+
+
+def test_get_shared_atoms(ester_hydrolysis_reaction):
+    reactant, product = ester_hydrolysis_reaction
+
+    ester = separate_molecules(reactant)[0]
+    acid = separate_molecules(product)[0]
+
+    result = get_shared_atoms(ester, acid)
+    expected = np.array([0, 1, 2, 3, 4, 5])
+
+    assert np.all(result == expected)
+
+
+def test_separate_molecules(ester_hydrolysis_reaction):
+    reactant, product = ester_hydrolysis_reaction
+
+    reactant_expected = separate(reactant)
+    reactant_expected[0].set_tags([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    reactant_expected[1].set_tags([11, 12])
+
+    product_expected = separate(product)
+    product_expected[0].set_tags([0, 1, 2, 3, 4, 5, 11, 12])
+    product_expected[1].set_tags([6, 7, 8, 9, 10])
+
+    reactant_result = separate_molecules(reactant)
+    product_result = separate_molecules(product)
+
+    assert reactant_result == reactant_expected
+    assert product_result == product_expected
