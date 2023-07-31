@@ -4,13 +4,16 @@ from itertools import combinations
 from typing import TYPE_CHECKING
 
 import ase
+from ase.calculators.calculator import Calculator
 from ase.build import separate, connected_indices
 from ase.geometry.analysis import Analysis
+from ase.optimize import BFGS
 import ase.io
 
 import numpy as np
 
 if TYPE_CHECKING:
+    from typing import Union
     from numpy.typing import ArrayLike
     from scipy.sparse import dok_matrix
 
@@ -35,6 +38,12 @@ def main(start=None, end=None, both=None):
     reactivity_matrix = get_reactivity_matrix(reactant, product)
 
     initial_positioning(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+
+    fix_overlaps(reactant)
+    fix_overlaps(product)
+
+    ase.io.write('start.xyz', reactant)
+    ase.io.write('end.xyz', product)
 
 
 def initial_positioning(reactant: ase.Atoms,
@@ -85,6 +94,60 @@ def initial_positioning(reactant: ase.Atoms,
         product_mol.translate(product_repositioning_vector)
 
 
+def determine_overlaps(molecules: list[ase.Atoms],
+                       geometric_centres: list[np.ndarray],
+                       estimated_radii: list[float]) -> np.ndarray:
+    size = len(molecules)
+    overlaps = np.zeros((size, size), dtype=np.int8)
+    indices = list(range(size))
+
+    for mol1, mol2 in combinations(indices, 2):
+        centre_distance = np.linalg.norm(geometric_centres[mol2] - geometric_centres[mol1])
+        combined_radius = estimated_radii[mol2] + estimated_radii[mol1]
+
+        if centre_distance < combined_radius:
+            overlaps[mol1, mol2], overlaps[mol2, mol1] = 1, 1
+        # Else keep it 0
+
+    return overlaps
+
+
+def estimate_molecular_radius(molecule: ase.Atoms, geometric_centre: np.ndarray) -> float:
+    distances = np.zeros(len(molecule))
+    for i, atom in enumerate(molecule.get_positions()):
+        distances[i] = np.linalg.norm(atom - geometric_centre)
+
+    mean = np.mean(distances)
+    std = np.std(distances)
+
+    return mean + 2 * std
+
+
+def fix_overlaps(system: ase.Atoms,
+                 molecules: list[list[int]],
+                 force_constant: float = 1.0,
+                 fmax: float = 1e-5):
+    system.calc = HardSphereCalculator(molecules, force_constant)
+    dyn = ConstrainedBFGS(system)
+
+    try:
+        converged = dyn.run(fmax=fmax)
+    except OptimisationNotConvergingError:
+        converged = False
+
+    if not converged:
+        trial_constants = np.arange(force_constant, force_constant*10, 1.0)
+        for trial_constant in trial_constants:
+            print(trial_constant)
+            converged = simple_optimise_structure(system, molecules, trial_constant, fmax)
+            if converged is not None:
+                break
+        else:
+            raise Exception()
+
+        system.translate(-(converged.get_positions() - system.get_positions()))
+
+
 def get_bond_forming_atoms(molecule1: ase.Atoms,
                            molecule2: ase.Atoms,
                            reactants: bool,
@@ -133,7 +196,14 @@ def get_shared_atoms(reactant_molecule: ase.Atoms, product_molecule: ase.Atoms) 
     return intersection
 
 
-def separate_molecules(system: ase.Atoms):
+def separate_molecules(system: ase.Atoms, molecules: Union[None, list[list[int]]] = None) -> list[ase.Atoms]:
+    if molecules is None:
+        return _separate_molecules_using_connectivity(system)
+    else:
+        return _separate_molecules_using_list(system, molecules)
+
+
+def _separate_molecules_using_connectivity(system: ase.Atoms) -> list[ase.Atoms]:
     indices = list(range(len(system)))
 
     separated = []
@@ -148,3 +218,144 @@ def separate_molecules(system: ase.Atoms):
         separated[-1].set_tags(my_indices)
 
     return separated
+
+
+def _separate_molecules_using_list(system: ase.Atoms,
+                                   molecules: list[list[int]]) -> list[ase.Atoms]:
+    separated = []
+    for molecule in molecules:
+        separated.append(ase.Atoms(cell=system.cell, pbc=system.pbc))
+        for index in molecule:
+            separated[-1].append(system[index])
+
+        separated[-1].set_tags(molecule)
+
+    return separated
+
+
+def simple_optimise_structure(system: ase.Atoms,
+                              molecule_indices: list[list[int]],
+                              force_constant: float = 1.0,
+                              fmax: float = 1e-5) -> Union[ase.Atoms, None]:
+    system = system.copy()
+
+    calc = HardSphereCalculator(molecule_indices, force_constant)
+    molecules = separate_molecules(system, molecule_indices)
+
+    forces = calc.compute_hard_sphere_forces(molecules)
+    max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
+
+    for i in range(500):
+        if max_force < fmax:
+            break
+
+        for force, molecule in zip(forces, molecules):
+            molecule.translate(force)
+
+        forces = calc.compute_hard_sphere_forces(molecules)
+        max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
+    else:
+        return None
+
+    new_positions = np.zeros((len(system), 3))
+    for molecule, indices in zip(molecules, molecule_indices):
+        new_positions[indices] = molecule.get_positions()
+
+    system.set_positions(new_positions)
+
+    return system
+
+
+class OptimisationNotConvergingError(Exception):
+    pass
+
+
+class ConstrainedBFGS(BFGS):
+    def __init__(self,
+                 atoms: ase.Atoms,
+                 non_convergence_limit: float = 0.001,
+                 non_convergence_roof: float = 0.5,
+                 logfile: str = '-',
+                 maxstep: Union[float, None] = None,
+                 master: Union[bool, None] = None,
+                 alpha: Union[float, None] = None):
+        self._total_fmax: float = 0.0
+        self._total_iteration: float = 0.0
+        self.non_convergence_limit = non_convergence_limit
+        self.non_convergence_roof = non_convergence_roof
+
+        super().__init__(atoms=atoms, restart=None, logfile=logfile, trajectory=None, maxstep=maxstep,
+                         master=master, alpha=alpha)
+
+    def converged(self, forces=None) -> bool:
+        if forces is None:
+            forces = self.atoms.get_forces()
+
+        max_force = (forces ** 2).sum(axis=1).max()
+
+        try:
+            average_until_now = self._total_fmax / self._total_iteration
+        except ZeroDivisionError:
+            average_until_now = 1000
+
+        self._total_fmax += max_force
+        self._total_iteration += 1.0
+
+        new_average = self._total_fmax / self._total_iteration
+
+        if max_force > self.non_convergence_roof and abs(average_until_now - new_average) < self.non_convergence_limit:
+            raise OptimisationNotConvergingError()
+
+        if hasattr(self.atoms, "get_curvature"):
+            return max_force < self.fmax ** 2 and self.atoms.get_curvature() < 0.0
+        return max_force < self.fmax ** 2
+
+
+class HardSphereCalculator(Calculator):
+    implemented_properties = ['forces', 'energy']
+
+    def __init__(self, molecules: list[list[int]], force_constant: float = 1.0, label=None, atoms=None,
+                 directory='.', **kwargs):
+        self.force_constant = force_constant
+        self.molecules = molecules
+
+        super().__init__(restart=None, label=label, atoms=atoms, directory=directory, **kwargs)
+
+    def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
+        self.atoms = atoms.copy()
+        molecules = separate_molecules(self.atoms, self.molecules)
+        forces = self.compute_hard_sphere_forces(molecules)
+
+        submit_forces = np.zeros((len(self.atoms), 3))
+
+        for mol, force in zip(molecules, forces):
+            for index in mol.get_tags():
+                submit_forces[index, :] = force
+
+        self.results['forces'] = submit_forces
+        self.results['energy'] = 0.0
+
+    def compute_hard_sphere_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
+        geometric_centres = [np.mean(mol.get_positions(), axis=0) for mol in molecules]
+        molecular_radii = [estimate_molecular_radius(mol, centre) for mol, centre in zip(molecules, geometric_centres)]
+
+        overlaps = determine_overlaps(molecules, geometric_centres, molecular_radii)
+
+        forces = np.zeros((len(molecules), 3), dtype=np.float64)
+        for i, affected_mol in enumerate(molecules):
+            n_atoms = len(affected_mol)
+            n = 3 * n_atoms * np.sum(overlaps[i, :])
+
+            pairwise_forces = []
+            for j, other_mol in enumerate(molecules):
+                if overlaps[i, j] == 0 or i == j:
+                    continue
+
+                centre_diff = geometric_centres[i] - geometric_centres[j]
+                distance = np.linalg.norm(centre_diff)
+                phi = self.force_constant * (distance - (molecular_radii[i] + molecular_radii[j])) / n
+                pairwise_forces.append(phi * centre_diff / distance)
+
+            forces[i, :] = n_atoms * np.sum(np.array(pairwise_forces), axis=0)
+
+        return forces

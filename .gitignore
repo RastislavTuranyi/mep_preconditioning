@@ -1,3 +1,6 @@
+# Application-specific
+Tests/*.xyz
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
