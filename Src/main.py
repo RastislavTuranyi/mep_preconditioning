@@ -64,7 +64,7 @@ def initial_positioning(reactant: ase.Atoms,
         # Translate reactant molecules so that their geometric centres are (approximately) at origin
         reactant_mol.translate(-np.mean(reactant_mol.get_positions(), axis=0))
 
-        # Calculate geometric centres of reactive (B) and shared atoms (C)
+        # Calculate geometric centres of reactive (B, beta) and shared atoms (C, sigma)
         for product_mol in product_molecules:
             shared = get_shared_atoms(reactant_mol, product_mol)
             reactive = get_reactive_atoms(shared, reactivity_matrix)
@@ -74,7 +74,7 @@ def initial_positioning(reactant: ase.Atoms,
             if reactive.size > 0:
                 reactive_atom_geometric_centres.append(np.mean(coordinates[reactive, :], axis=0))
 
-    # Calculate the geometric centres of bond-forming atoms (A)
+    # Calculate the geometric centres of bond-forming atoms (A, alpha)
     bonding_atom_geometric_centres = []
     for rmol1, rmol2 in combinations(reactant_molecules, 2):
         atoms = get_bond_forming_atoms(rmol1, rmol2, True, reactivity_matrix)
@@ -189,6 +189,20 @@ def fix_overlaps(system: ase.Atoms,
         system.set_positions(new_positions)
 
 
+def get_all_bond_forming_atoms_in_molecule(molecule: ase.Atoms,
+                                           reactants: bool,
+                                           reactivity_matrix: dok_matrix) -> np.ndarray:
+    search = 1 if reactants else -1
+    atoms = molecule.get_tags()
+
+    bonding_atoms = []
+    for key, val in reactivity_matrix.items():
+        if val == search and (key[0] in atoms or key[1] in atoms):
+            bonding_atoms.append(key[0])
+
+    return np.array(bonding_atoms)
+
+
 def get_bond_forming_atoms(molecule1: ase.Atoms,
                            molecule2: ase.Atoms,
                            reactants: bool,
@@ -235,6 +249,26 @@ def get_indices(arr: np.ndarray, values):
 def get_shared_atoms(reactant_molecule: ase.Atoms, product_molecule: ase.Atoms) -> np.ndarray:
     intersection = np.intersect1d(reactant_molecule.get_tags(), product_molecule.get_tags())
     return intersection
+
+
+def reorient_reactants(reactant: ase.Atoms, molecules: list[ase.Atoms], reactivity_matrix: dok_matrix):
+    for molecule in molecules:
+        g = np.mean(molecule.get_positions(), axis=0)
+
+        bonding_atoms = get_all_bond_forming_atoms_in_molecule(molecule, True, reactivity_matrix)
+        gamma = np.mean(reactant.get_positions()[bonding_atoms], axis=0)
+
+
+def rotation_matrix_from_vectors(vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
+    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
+    v = np.cross(a, b)
+    c = np.dot(a, b)
+    s = np.linalg.norm(v)
+    kmat = np.array([[0, -v[2], v[1]],
+                     [v[2], 0, -v[0]],
+                     [-v[1], v[0], 0]])
+    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
+    return rotation_matrix
 
 
 def separate_molecules(system: ase.Atoms, molecules: Union[None, list[list[int]]] = None) -> list[ase.Atoms]:
