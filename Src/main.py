@@ -9,7 +9,7 @@ import ase.io
 import numpy as np
 
 from Src.common_functions import separate_molecules
-from Src.stage1 import initial_positioning
+from Src.stage1 import *
 from Src.stage2 import fix_overlaps
 
 if TYPE_CHECKING:
@@ -37,7 +37,8 @@ def main(start=None, end=None, both=None):
 
     reactivity_matrix = get_reactivity_matrix(reactant, product)
 
-    initial_positioning(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+    reposition_reactants(reactant, reactant_molecules, reactivity_matrix)
+    reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
 
     fix_overlaps(reactant, [mol.get_tags() for mol in reactant_molecules])
     fix_overlaps(product, [mol.get_tags() for mol in reactant_molecules])

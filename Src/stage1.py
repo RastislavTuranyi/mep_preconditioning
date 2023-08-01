@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from itertools import combinations
 from typing import TYPE_CHECKING
 
 import ase
@@ -14,49 +13,50 @@ if TYPE_CHECKING:
     from scipy.sparse import dok_matrix
 
 
-def initial_positioning(reactant: ase.Atoms,
-                        product: ase.Atoms,
-                        reactant_molecules: list[ase.Atoms],
-                        product_molecules: list[ase.Atoms],
-                        reactivity_matrix: dok_matrix):
+def reposition_reactants(reactant: ase.Atoms,
+                         reactant_molecules: list[ase.Atoms],
+                         reactivity_matrix: dok_matrix) -> None:
     coordinates = reactant.get_positions()
-
-    shared_atom_geometric_centres = []
-    reactive_atom_geometric_centres = []
-
+    # Translate reactant molecules so that their geometric centres are (approximately) at origin
     for reactant_mol in reactant_molecules:
-        # Translate reactant molecules so that their geometric centres are (approximately) at origin
         reactant_mol.translate(-np.mean(reactant_mol.get_positions(), axis=0))
 
-        # Calculate geometric centres of reactive (B, beta) and shared atoms (C, sigma)
-        for product_mol in product_molecules:
+    # Calculate the geometric centres of bond-forming atoms (A, alpha)
+    for i, mol1 in enumerate(reactant_molecules):
+        alpha = compute_alpha_vector(coordinates, i, reactant_molecules, True, reactivity_matrix)
+        mol1.translate(alpha)
+        coordinates[mol1.get_tags()] += alpha
+
+    reactant.set_positions(coordinates)
+
+
+def reposition_products(product: ase.Atoms,
+                        reactant: ase.Atoms,
+                        reactant_molecules: list[ase.Atoms],
+                        product_molecules: list[ase.Atoms],
+                        reactivity_matrix: dok_matrix) -> None:
+    n_reactants = len(reactant_molecules)
+    reactant_coordinates = reactant.get_positions()
+    product_coordinates = product.get_positions()
+
+    for product_mol in product_molecules:
+        beta, sigma = np.zeros(3), np.zeros(3)
+        # Calculate beta and sigma for each reaction molecule
+        for reactant_mol in reactant_molecules:
             shared = get_shared_atoms(reactant_mol, product_mol)
             reactive = get_reactive_atoms(shared, reactivity_matrix)
 
             if shared.size > 0:
-                shared_atom_geometric_centres.append(np.mean(coordinates[shared, :], axis=0))
+                beta += np.mean(reactant_coordinates[shared, :], axis=0)
             if reactive.size > 0:
-                reactive_atom_geometric_centres.append(np.mean(coordinates[reactive, :], axis=0))
+                sigma += np.mean(reactant_coordinates[reactive, :], axis=0)
 
-    # Calculate the geometric centres of bond-forming atoms (A, alpha)
-    bonding_atom_geometric_centres = []
-    for rmol1, rmol2 in combinations(reactant_molecules, 2):
-        atoms = get_bond_forming_atoms(rmol1, rmol2, True, reactivity_matrix)
-        bonding_atom_geometric_centres.append(np.mean(coordinates[atoms, :], axis=0))
+        # Compute displacement vector from current position to the destination
+        destination = (beta / n_reactants + sigma / n_reactants) / 2
+        displacement = destination - np.mean(product_mol.get_positions(), axis=0)
 
-    # Calculate the vectors which will be used to reposition the reactants and products
-    n_reactants = len(reactant_molecules)
-    beta = np.sum(np.array(reactive_atom_geometric_centres), axis=0) / n_reactants
-    sigma = np.sum(np.array(shared_atom_geometric_centres), axis=0) / n_reactants
+        # Move the molecule itself as well as the entire system
+        product_mol.translate(displacement)
+        product_coordinates[product_mol.get_tags()] += displacement
 
-    reactant_repositioning_vector = np.sum(np.array(bonding_atom_geometric_centres), axis=0) / n_reactants
-    product_repositioning_vector = (beta + sigma) / 2
-
-    # Translate all reactants and products using the computed vectors
-    reactant.translate(reactant_repositioning_vector)
-    for reactant_mol in reactant_molecules:
-        reactant_mol.translate(reactant_repositioning_vector)
-
-    product.translate(product_repositioning_vector)
-    for product_mol in product_molecules:
-        product_mol.translate(product_repositioning_vector)
+    product.set_positions(product_coordinates)

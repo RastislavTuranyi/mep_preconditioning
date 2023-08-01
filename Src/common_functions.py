@@ -13,6 +13,27 @@ if TYPE_CHECKING:
     from scipy.sparse import dok_matrix
 
 
+def compute_alpha_vector(coordinates: np.ndarray,
+                         target: int,
+                         molecules: list[ase.Atoms],
+                         reactant: bool,
+                         reactivity_matrix: dok_matrix) -> np.ndarray:
+    alpha = np.zeros(3)
+    target_mol = molecules[target]
+    n_mol = len(molecules)
+
+    for j, mol2 in enumerate(molecules):
+        if target == j:
+            continue
+
+        atoms = get_bond_forming_atoms(target_mol, mol2, reactant, reactivity_matrix)
+        if atoms.size > 0:
+            alpha += np.mean(coordinates[atoms, :], axis=0)
+
+    return alpha / n_mol
+
+
+
 def get_all_bond_forming_atoms_in_molecule(molecule: ase.Atoms,
                                            reactants: bool,
                                            reactivity_matrix: dok_matrix) -> np.ndarray:

@@ -1,8 +1,9 @@
 import numpy as np
+from numpy.testing import assert_allclose
 import pytest
 
 from Src.common_functions import separate_molecules, get_reactivity_matrix
-from Src.stage1 import initial_positioning
+from Src.stage1 import *
 
 from Tests.common_fixtures import ester_hydrolysis_reaction
 
@@ -11,11 +12,9 @@ def test_initial_positioning(ester_hydrolysis_reaction):
     reactant, product = ester_hydrolysis_reaction
 
     reactant_molecules = separate_molecules(reactant)
-    product_molecules = separate_molecules(product)
-
     reactivity_matrix = get_reactivity_matrix(reactant, product)
 
-    initial_positioning(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+    reposition_reactants(reactant, reactant_molecules, reactivity_matrix)
 
     reactant_expected = np.array([[-1.05141, 5.188985, 4.03545],
                                   [-0.72742, 4.160835, 4.20875],
@@ -28,22 +27,35 @@ def test_initial_positioning(ester_hydrolysis_reaction):
                                   [2.84113, 5.615555, 4.31415],
                                   [1.3614, 5.903955, 5.26329],
                                   [1.61413, 4.329825, 4.43672],
-                                  [-0.99627, 1.395835, 1.36496],
-                                  [-0.87429, 1.441465, 2.30599]])
+                                  [-1.391955, -0.828885, 0.567825],
+                                  [-1.269975, -0.783255, 1.508855]])
+    print(repr(reactant.get_positions()))
+    assert_allclose(reactant.get_positions(), reactant_expected)
 
-    product_expected = np.array([[-4.03730858, 2.81617558, 2.27066408],
-                                 [-3.69396858, 1.78991558, 2.41853408],
-                                 [-3.15220858, 3.52586558, 1.27145408],
-                                 [-5.07007858, 2.79112558, 1.91441408],
-                                 [-4.01462858, 3.33248558, 3.23312408],
-                                 [-3.54348858, 3.92694558, 0.19546408],
-                                 [2.11144142, 4.86205558, 4.05148408],
-                                 [0.88128142, 4.97962558, 4.70576408],
-                                 [0.54706142, 3.98752558, 5.07954408],
-                                 [1.00059142, 5.65644558, 5.57669408],
-                                 [0.12252142, 5.42099558, 4.02373408],
-                                 [-1.91641858, 3.66563558, 1.67252408],
-                                 [-1.84211858, 3.26893558, 2.55711408]])
 
-    assert np.allclose(reactant.get_positions(), reactant_expected)
-    assert np.allclose(product.get_positions(), product_expected)
+def test_reposition_products(ester_hydrolysis_reaction):
+    reactant, product = ester_hydrolysis_reaction
+
+    reactant_molecules = separate_molecules(reactant)
+    product_molecules = separate_molecules(product)
+
+    reactivity_matrix = get_reactivity_matrix(reactant, product)
+
+    reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+
+    product_expected = np.array([[-4.01608, 0.23907, 0.06919],
+                                 [-3.67274, -0.78719, 0.21706],
+                                 [-3.13098, 0.94876, -0.93002],
+                                 [-5.04885, 0.21402, -0.28706],
+                                 [-3.9934, 0.75538, 1.03165],
+                                 [-3.52226, 1.34984, -2.00601],
+                                 [2.13267, 2.28495, 1.85001],
+                                 [0.90251, 2.40252, 2.50429],
+                                 [0.56829, 1.41042, 2.87807],
+                                 [1.02182, 3.07934, 3.37522],
+                                 [0.14375, 2.84389, 1.82226],
+                                 [-1.89519, 1.08853, -0.52895],
+                                 [-1.82089, 0.69183, 0.35564]])
+    print(repr(product.get_positions()))
+    print()
+    assert_allclose(product.get_positions(), product_expected)

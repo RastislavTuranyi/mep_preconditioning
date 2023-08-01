@@ -14,6 +14,10 @@ def restructure(*args):
 
 @pytest.fixture()
 def ester_hydrolysis_reaction():
+    return ester_hydrolysis_wrapped()
+
+
+def ester_hydrolysis_wrapped():
     numbers = np.array([6, 1, 6, 1, 1, 8, 8, 6, 1, 1, 1, 8, 1])
     positions = np.array([[-0.98311, 3.24056, 3.04904],
                           [-0.65912, 2.21241, 3.22234],
