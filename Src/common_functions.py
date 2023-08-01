@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import ase
+from ase.build import connected_indices
+from ase.geometry.analysis import Analysis
+import numpy as np
+
+if TYPE_CHECKING:
+    from typing import Union
+    from numpy.typing import ArrayLike
+    from scipy.sparse import dok_matrix
+
+
+def get_all_bond_forming_atoms_in_molecule(molecule: ase.Atoms,
+                                           reactants: bool,
+                                           reactivity_matrix: dok_matrix) -> np.ndarray:
+    # TODO: Write test
+    search = 1 if reactants else -1
+    atoms = molecule.get_tags()
+
+    bonding_atoms = []
+    for key, val in reactivity_matrix.items():
+        if val == search and (key[0] in atoms or key[1] in atoms):
+            bonding_atoms.append(key[0])
+
+    return np.array(bonding_atoms)
+
+
+def get_bond_forming_atoms(molecule1: ase.Atoms,
+                           molecule2: ase.Atoms,
+                           reactants: bool,
+                           reactivity_matrix: dok_matrix) -> np.ndarray:
+    search = 1 if reactants else -1
+
+    atoms1, atoms2 = molecule1.get_tags(), molecule2.get_tags()
+
+    bonding_atoms = []
+    for key, val in reactivity_matrix.items():
+        if val == search:
+            if key[0] in atoms1 and key[1] in atoms2:
+                bonding_atoms.append(key[0])
+            elif key[1] in atoms1 and key[0] in atoms2:
+                bonding_atoms.append(key[1])
+
+    return np.array(bonding_atoms)
+
+
+def get_reactive_atoms(shared_atoms: np.ndarray,
+                       reactivity_matrix: dok_matrix) -> np.ndarray:
+    reactive_atoms = []
+    for atom in shared_atoms:
+        row = reactivity_matrix[atom, :]
+        if row.count_nonzero() > 0:
+            reactive_atoms.append(atom)
+
+    return np.array(reactive_atoms)
+
+
+def get_reactivity_matrix(reactant: ase.Atoms, product: ase.Atoms) -> dok_matrix:
+    reactant_connectivity = Analysis(reactant).adjacency_matrix[0]
+    product_connectivity = Analysis(product).adjacency_matrix[0]
+
+    return (product_connectivity - reactant_connectivity).todok()
+
+
+# noinspection PyTypeChecker
+def get_shared_atoms(reactant_molecule: ase.Atoms, product_molecule: ase.Atoms) -> np.ndarray:
+    intersection = np.intersect1d(reactant_molecule.get_tags(), product_molecule.get_tags())
+    return intersection
+
+
+def separate_molecules(system: ase.Atoms, molecules: Union[None, list[list[int]]] = None) -> list[ase.Atoms]:
+    if molecules is None:
+        return _separate_molecules_using_connectivity(system)
+    else:
+        return _separate_molecules_using_list(system, molecules)
+
+
+def _separate_molecules_using_connectivity(system: ase.Atoms) -> list[ase.Atoms]:
+    indices = list(range(len(system)))
+
+    separated = []
+    while indices:
+        my_indices = connected_indices(system, indices[0])
+        separated.append(ase.Atoms(cell=system.cell, pbc=system.pbc))
+
+        for i in my_indices:
+            separated[-1].append(system[i])
+            del indices[indices.index(i)]
+
+        separated[-1].set_tags(my_indices)
+
+    return separated
+
+
+def _separate_molecules_using_list(system: ase.Atoms,
+                                   molecules: list[list[int]]) -> list[ase.Atoms]:
+    separated = []
+    for molecule in molecules:
+        separated.append(ase.Atoms(cell=system.cell, pbc=system.pbc))
+        for index in molecule:
+            separated[-1].append(system[index])
+
+        separated[-1].set_tags(molecule)
+
+    return separated
