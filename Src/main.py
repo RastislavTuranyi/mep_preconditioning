@@ -18,6 +18,10 @@ if TYPE_CHECKING:
     from scipy.sparse import dok_matrix
 
 
+class ConvergenceError(Exception):
+    pass
+
+
 class InputError(Exception):
     pass
 
@@ -39,8 +43,8 @@ def main(start=None, end=None, both=None):
 
     initial_positioning(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
 
-    fix_overlaps(reactant)
-    fix_overlaps(product)
+    fix_overlaps(reactant, [mol.get_tags() for mol in reactant_molecules])
+    fix_overlaps(product, [mol.get_tags() for mol in reactant_molecules])
 
     ase.io.write('start.xyz', reactant)
     ase.io.write('end.xyz', product)
@@ -126,26 +130,63 @@ def estimate_molecular_radius(molecule: ase.Atoms, geometric_centre: np.ndarray)
 def fix_overlaps(system: ase.Atoms,
                  molecules: list[list[int]],
                  force_constant: float = 1.0,
-                 fmax: float = 1e-5):
+                 fmax: float = 1e-5,
+                 max_iter: int = 1000,
+                 non_convergence_limit: Union[float, None] = 0.001,
+                 non_convergence_roof: Union[float, None] = 0.5,
+                 trial_constants: Union[None, float, tuple[float], tuple[float, float], tuple[float, float, float],
+                                        list[float], np.ndarray] = 10.0):
     system.calc = HardSphereCalculator(molecules, force_constant)
-    dyn = ConstrainedBFGS(system)
+    if non_convergence_roof is None or non_convergence_limit is None:
+        dyn = BFGS(system)
+    else:
+        dyn = ConstrainedBFGS(system, non_convergence_limit, non_convergence_roof)
 
+    # Try using ASE optimiser, but switch to custom optimisation scheme if it does not converge
     try:
-        converged = dyn.run(fmax=fmax)
-    except OptimisationNotConvergingError:
-        converged = False
+        dyn.run(fmax=fmax, steps=max_iter)
+    except OptimisationNotConvergingError as e:
+        if trial_constants is None:
+            raise ConvergenceError(f'Molecule overlaps failed to be fixed: The geometry optimisation using '
+                                   f'`ase.optimize.BFGS` was aborted early (iteration={dyn._total_iteration}, latest '
+                                   f'fmax={e.fmax}, average fmax on previous iteration={e.previous_average}, average '
+                                   f'fmax on current iteration={e.new_average}) because the optimisation was not '
+                                   f'converging.\n\n> If you\'d like to disable this behaviour and run BFGS until '
+                                   f'completion ({max_iter=}), pass in `None` to the `non_convergence_limit` and/or '
+                                   f'`non_convergence_limit` parameters, but beware that this is likely to result in '
+                                   f'a VERY long optimisation that is highly unlikely to converge.'
+                                   f'\n\n> If you\'d like to reach convergence, you can enable further attempts at '
+                                   f'optimisation using increasing values of force constant with a very simple scheme '
+                                   f'(`simple_optimise_structure`). See documentation for `fix_overlaps` for more '
+                                   f'details.')
 
-    if not converged:
-        trial_constants = np.arange(force_constant, force_constant*10, 1.0)
+        # TODO: Write tests for each of these input methods
+        # Create a range of increasing force constants
+        if isinstance(trial_constants, float):
+            trial_constants = np.arange(force_constant, trial_constants, 1.0)
+        elif isinstance(trial_constants, tuple):
+            if len(trial_constants) == 1:
+                trial_constants = np.arange(force_constant, trial_constants[0], 1.0)
+            elif len(trial_constants) == 2:
+                trial_constants = np.arange(trial_constants[0], trial_constants[1], 1.0)
+            elif len(trial_constants) == 3:
+                trial_constants = np.arange(trial_constants[0], trial_constants[1], trial_constants[2])
+
+        # Try optimising structure using a series of increasing force constants
         for trial_constant in trial_constants:
-            print(trial_constant)
-            converged = simple_optimise_structure(system, molecules, trial_constant, fmax)
-            if converged is not None:
+            # TODO: Talk about this function and its results when used after BFGS vs without
+            new_positions = simple_optimise_structure(system, molecules, trial_constant, fmax, max_iter)
+            if new_positions is not None:
                 break
         else:
-            raise Exception()
+            raise ConvergenceError('Molecule overlaps failed to converge: molecule overlaps could not be resolved '
+                                   f'within the provided iterations ({max_iter=}) and range of force constants ('
+                                   f'{trial_constants=}). This is likely due to optimisation failing to converge. '
+                                   f'Increasing the upper bound of the `trial_constants` parameter should allow for '
+                                   f' convergence to be reached, though possibly at the cost of the molecules ending '
+                                   f'further apart.')
 
-        system.translate(-(converged.get_positions() - system.get_positions()))
+        system.set_positions(new_positions)
 
 
 def get_bond_forming_atoms(molecule1: ase.Atoms,
@@ -236,16 +277,15 @@ def _separate_molecules_using_list(system: ase.Atoms,
 def simple_optimise_structure(system: ase.Atoms,
                               molecule_indices: list[list[int]],
                               force_constant: float = 1.0,
-                              fmax: float = 1e-5) -> Union[ase.Atoms, None]:
-    system = system.copy()
-
+                              fmax: float = 1e-5,
+                              max_iter: int = 500) -> Union[np.ndarray, None]:
     calc = HardSphereCalculator(molecule_indices, force_constant)
     molecules = separate_molecules(system, molecule_indices)
 
     forces = calc.compute_hard_sphere_forces(molecules)
     max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
 
-    for i in range(500):
+    for i in range(max_iter):
         if max_force < fmax:
             break
 
@@ -261,13 +301,16 @@ def simple_optimise_structure(system: ase.Atoms,
     for molecule, indices in zip(molecules, molecule_indices):
         new_positions[indices] = molecule.get_positions()
 
-    system.set_positions(new_positions)
-
-    return system
+    return new_positions
 
 
 class OptimisationNotConvergingError(Exception):
-    pass
+    def __init__(self, fmax, previous_average, new_average, *args):
+        self.fmax = fmax
+        self.previous_average = previous_average
+        self.new_average = new_average
+
+        super().__init__(*args)
 
 
 class ConstrainedBFGS(BFGS):
@@ -304,7 +347,7 @@ class ConstrainedBFGS(BFGS):
         new_average = self._total_fmax / self._total_iteration
 
         if max_force > self.non_convergence_roof and abs(average_until_now - new_average) < self.non_convergence_limit:
-            raise OptimisationNotConvergingError()
+            raise OptimisationNotConvergingError(max_force, average_until_now, new_average)
 
         if hasattr(self.atoms, "get_curvature"):
             return max_force < self.fmax ** 2 and self.atoms.get_curvature() < 0.0
