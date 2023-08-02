@@ -18,6 +18,16 @@ def compute_alpha_vector(coordinates: np.ndarray,
                          molecules: list[ase.Atoms],
                          reactant: bool,
                          reactivity_matrix: dok_matrix) -> np.ndarray:
+    r"""
+    .. math::
+        \alpha_{Rm} = \frac{1}{N^R} \sum_{n≠m}^{N^R}{\frac{1}{|A^{Rnm}|}\sum_{a∈A^{Rnm}}{\xrightarrow{r_{Rn}^a}}}
+    :param coordinates:
+    :param target:
+    :param molecules:
+    :param reactant:
+    :param reactivity_matrix:
+    :return:
+    """
     alpha = np.zeros(3)
     target_mol = molecules[target]
     n_mol = len(molecules)
@@ -31,7 +41,6 @@ def compute_alpha_vector(coordinates: np.ndarray,
             alpha += np.mean(coordinates[atoms, :], axis=0)
 
     return alpha / n_mol
-
 
 
 def get_all_bond_forming_atoms_in_molecule(molecule: ase.Atoms,
