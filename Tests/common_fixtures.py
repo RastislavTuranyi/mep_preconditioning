@@ -1,6 +1,8 @@
 import ase
+from ase.build import separate
 import pytest
 import numpy as np
+from scipy.sparse import dok_matrix
 
 
 def restructure(*args):
@@ -54,3 +56,36 @@ def ester_hydrolysis_wrapped():
     product = ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
 
     return reactant, product
+
+
+@pytest.fixture()
+def set_up_separate_molecules(ester_hydrolysis_reaction) \
+        -> tuple[ase.Atoms, ase.Atoms, list[list[int]], list[list[int]], list[ase.Atoms], list[ase.Atoms], dok_matrix]:
+    # TODO: Look for a less cursed way to do this
+    return set_up_separate_molecules_wrapped(ester_hydrolysis_reaction)
+
+
+def set_up_separate_molecules_wrapped(ester_hydrolysis_reaction=None) \
+        -> tuple[ase.Atoms, ase.Atoms, list[list[int]], list[list[int]], list[ase.Atoms], list[ase.Atoms], dok_matrix]:
+    if ester_hydrolysis_reaction is None:
+        reactant, product = ester_hydrolysis_wrapped()
+    else:
+        reactant, product = ester_hydrolysis_reaction
+
+    reactant_indices = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [11, 12]]
+    product_indices = [[0, 1, 2, 3, 4, 5, 11, 12], [6, 7, 8, 9, 10]]
+
+    reactant_expected = separate(reactant)
+    reactant_expected[0].set_tags(reactant_indices[0])
+    reactant_expected[1].set_tags(reactant_indices[1])
+
+    product_expected = separate(product)
+    product_expected[0].set_tags(product_indices[0])
+    product_expected[1].set_tags(product_indices[1])
+
+    reactivity_matrix = np.zeros((13, 13), dtype=np.int8)
+    reactivity_matrix[2, 6] = -1
+    reactivity_matrix[2, 11] = 1
+    reactivity_matrix = dok_matrix(reactivity_matrix)
+
+    return reactant, product, reactant_indices, product_indices, reactant_expected, product_expected, reactivity_matrix

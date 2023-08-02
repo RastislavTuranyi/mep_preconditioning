@@ -11,34 +11,6 @@ from Src.common_functions import _separate_molecules_using_connectivity, _separa
 from Tests.common_fixtures import *
 
 
-@pytest.fixture()
-def set_up_separate_molecules(ester_hydrolysis_reaction) \
-        -> tuple[ase.Atoms, ase.Atoms, list[list[int]], list[list[int]], list[ase.Atoms], list[ase.Atoms]]:
-    # TODO: Look for a less cursed way to do this
-    return set_up_separate_molecules_wrapped(ester_hydrolysis_reaction)
-
-
-def set_up_separate_molecules_wrapped(ester_hydrolysis_reaction=None) \
-        -> tuple[ase.Atoms, ase.Atoms, list[list[int]], list[list[int]], list[ase.Atoms], list[ase.Atoms]]:
-    if ester_hydrolysis_reaction is None:
-        reactant, product = ester_hydrolysis_wrapped()
-    else:
-        reactant, product = ester_hydrolysis_reaction
-
-    reactant_indices = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [11, 12]]
-    product_indices = [[0, 1, 2, 3, 4, 5, 11, 12], [6, 7, 8, 9, 10]]
-
-    reactant_expected = separate(reactant)
-    reactant_expected[0].set_tags(reactant_indices[0])
-    reactant_expected[1].set_tags(reactant_indices[1])
-
-    product_expected = separate(product)
-    product_expected[0].set_tags(product_indices[0])
-    product_expected[1].set_tags(product_indices[1])
-
-    return reactant, product, reactant_indices, product_indices, reactant_expected, product_expected
-
-
 def prepare_parameters_for_test_alpha_vector_simple() -> list[tuple[np.ndarray, np.ndarray]]:
     reactant, product, _, _, reactant_molecules, product_molecules = set_up_separate_molecules_wrapped()
     matrix = get_reactivity_matrix(reactant, product)
@@ -125,7 +97,7 @@ def test_get_shared_atoms(ester_hydrolysis_reaction):
 
 def test_separate_molecules_connectivity(set_up_separate_molecules):
     reactant, product, reactant_indices, product_indices, \
-    reactant_expected, product_expected = set_up_separate_molecules
+        reactant_expected, product_expected, _ = set_up_separate_molecules
 
     reactant_result = separate_molecules(reactant, None)
     product_result = separate_molecules(product, None)
@@ -142,7 +114,7 @@ def test_separate_molecules_connectivity(set_up_separate_molecules):
 
 def test_separate_molecules_list(set_up_separate_molecules):
     reactant, product, reactant_indices, product_indices, \
-    reactant_expected, product_expected = set_up_separate_molecules
+        reactant_expected, product_expected, _ = set_up_separate_molecules
 
     reactant_result = separate_molecules(reactant, reactant_indices)
     product_result = separate_molecules(product, product_indices)
@@ -159,7 +131,7 @@ def test_separate_molecules_list(set_up_separate_molecules):
 
 def test_separate_molecules_using_connectivity(set_up_separate_molecules):
     reactant, product, reactant_indices, product_indices, \
-    reactant_expected, product_expected = set_up_separate_molecules
+        reactant_expected, product_expected, _ = set_up_separate_molecules
 
     reactant_result = _separate_molecules_using_connectivity(reactant)
     product_result = _separate_molecules_using_connectivity(product)
@@ -176,7 +148,7 @@ def test_separate_molecules_using_connectivity(set_up_separate_molecules):
 
 def test_separate_molecules_using_list(set_up_separate_molecules):
     reactant, product, reactant_indices, product_indices, \
-    reactant_expected, product_expected = set_up_separate_molecules
+        reactant_expected, product_expected, _ = set_up_separate_molecules
 
     reactant_result = _separate_molecules_using_list(reactant, reactant_indices)
     product_result = _separate_molecules_using_list(product, product_indices)

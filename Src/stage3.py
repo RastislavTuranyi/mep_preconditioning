@@ -29,7 +29,10 @@ def compute_reactant_rotation(coordinates: np.ndarray,
 
     # Calculate gammaRm
     bonding_atoms = get_all_bond_forming_atoms_in_molecule(molecule, True, reactivity_matrix)
-    gamma = np.mean(coordinates[bonding_atoms], axis=0)
+    if bonding_atoms.size > 0:
+        gamma = np.mean(coordinates[bonding_atoms], axis=0)
+    else:
+        gamma = alpha
 
     # The rotation matrix will act on gamma - g to minimize the difference with alpha - g
     rotating_vector = gamma - geometric_centre
@@ -41,10 +44,7 @@ def compute_reactant_rotation(coordinates: np.ndarray,
         rotation = Rotation.from_matrix(rotation_matrix)
     except ParallelVectorsError:
         # If the vectors are opposites of each other, create Rotation object using inbuilt method, otherwise nothing
-        if np.dot(rotating_vector, target_vector) < 0:
-            rotation, _ = Rotation.align_vectors(rotating_vector[np.newaxis, :], target_vector[np.newaxis, :])
-        else:
-            rotation = None
+        rotation, _ = Rotation.align_vectors(rotating_vector[np.newaxis, :], target_vector[np.newaxis, :])
 
     return rotation
 
