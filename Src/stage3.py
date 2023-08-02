@@ -13,10 +13,6 @@ if TYPE_CHECKING:
     from scipy.sparse import dok_matrix
 
 
-class ParallelVectorsError(Exception):
-    pass
-
-
 def compute_reactant_rotation(coordinates: np.ndarray,
                               molecule_index: int,
                               molecules: list[ase.Atoms],
@@ -43,7 +39,9 @@ def compute_reactant_rotation(coordinates: np.ndarray,
     return rotation
 
 
-def reorient_reactants(reactant: ase.Atoms, molecules: list[ase.Atoms], reactivity_matrix: dok_matrix):
+def reorient_reactants(reactant: ase.Atoms,
+                       molecules: list[ase.Atoms],
+                       reactivity_matrix: dok_matrix) -> None:
     coordinates = reactant.get_positions()
     new_coordinates = np.copy(coordinates)
 
