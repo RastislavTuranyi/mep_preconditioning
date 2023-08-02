@@ -38,32 +38,9 @@ def compute_reactant_rotation(coordinates: np.ndarray,
     rotating_vector = gamma - geometric_centre
     target_vector = alpha - geometric_centre
 
-    # Try creating rotation matrix
-    try:
-        rotation_matrix = rotation_matrix_from_vectors(rotating_vector, target_vector)
-        rotation = Rotation.from_matrix(rotation_matrix)
-    except ParallelVectorsError:
-        # If the vectors are opposites of each other, create Rotation object using inbuilt method, otherwise nothing
-        rotation, _ = Rotation.align_vectors(rotating_vector[np.newaxis, :], target_vector[np.newaxis, :])
+    rotation, _ = Rotation.align_vectors(target_vector[np.newaxis, :], rotating_vector[np.newaxis, :])
 
     return rotation
-
-
-def rotation_matrix_from_vectors(vec1: np.ndarray, vec2: np.ndarray) -> np.ndarray:
-    a, b = (vec1 / np.linalg.norm(vec1)).reshape(3), (vec2 / np.linalg.norm(vec2)).reshape(3)
-    v = np.cross(a, b)
-    s = np.linalg.norm(v)
-
-    if s == 0:
-        raise ParallelVectorsError(f'Rotation matrix could not be computed for the provided vectors because they are'
-                                   f'parallel: {vec1=}, {vec2=}.')
-
-    c = np.dot(a, b)
-    kmat = np.array([[0, -v[2], v[1]],
-                     [v[2], 0, -v[0]],
-                     [-v[1], v[0], 0]])
-    rotation_matrix = np.eye(3) + kmat + kmat.dot(kmat) * ((1 - c) / (s ** 2))
-    return rotation_matrix
 
 
 def reorient_reactants(reactant: ase.Atoms, molecules: list[ase.Atoms], reactivity_matrix: dok_matrix):
@@ -72,7 +49,6 @@ def reorient_reactants(reactant: ase.Atoms, molecules: list[ase.Atoms], reactivi
 
     for i, molecule in enumerate(molecules):
         rotation = compute_reactant_rotation(coordinates, i, molecules, reactivity_matrix)
-        if rotation is not None:
-            rotation.apply(new_coordinates[molecule.get_tags()])
+        rotation.apply(new_coordinates[molecule.get_tags()])
 
     reactant.set_positions(new_coordinates)
