@@ -11,6 +11,7 @@ import numpy as np
 from Src.common_functions import separate_molecules
 from Src.stage1 import *
 from Src.stage2 import fix_overlaps
+from Src.stage3 import reorient_reactants, reorient_products
 
 if TYPE_CHECKING:
     from typing import Union
@@ -33,15 +34,23 @@ def main(start=None, end=None, both=None):
         raise InputError()
 
     reactant_molecules = separate_molecules(reactant)
+    reactant_indices = [mol.get_tags() for mol in reactant_molecules]
     product_molecules = separate_molecules(product)
+    product_indices = [mol.get_tags() for mol in product_molecules]
 
     reactivity_matrix = get_reactivity_matrix(reactant, product)
 
     reposition_reactants(reactant, reactant_molecules, reactivity_matrix)
     reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
 
-    fix_overlaps(reactant, [mol.get_tags() for mol in reactant_molecules])
-    fix_overlaps(product, [mol.get_tags() for mol in reactant_molecules])
+    fix_overlaps(reactant, reactant_indices)
+    fix_overlaps(product, product_indices)
+
+    reactant_molecules = separate_molecules(reactant, reactant_indices)
+    product_molecules = separate_molecules(product, product_indices)
+
+    reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
+    reorient_products(product, product_molecules, reactant_molecules)
 
     ase.io.write('start.xyz', reactant)
     ase.io.write('end.xyz', product)

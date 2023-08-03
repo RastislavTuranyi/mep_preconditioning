@@ -60,3 +60,27 @@ def test_reorient_reactants(set_up_separate_molecules):
 
     assert_allclose(reactant.get_positions(), expected_reactants)
     assert_allclose(product.get_positions(), expected_products)
+
+
+def test_reorient_products(set_up_separate_molecules):
+    reactant, product, _, _, reactant_molecules, product_molecules, reactivity_matrix = set_up_separate_molecules
+    original_reactant = reactant.get_positions()
+
+    reorient_products(product, product_molecules, reactant, reactant_molecules)
+
+    expected_product = np.array([[-4.01608,  0.23907,  0.06919],
+       [-3.67274, -0.78719,  0.21706],
+       [-3.13098,  0.94876, -0.93002],
+       [-5.04885,  0.21402, -0.28706],
+       [-3.9934 ,  0.75538,  1.03165],
+       [-3.52226,  1.34984, -2.00601],
+       [ 2.13267,  2.28495,  1.85001],
+       [ 0.90251,  2.40252,  2.50429],
+       [ 0.56829,  1.41042,  2.87807],
+       [ 1.02182,  3.07934,  3.37522],
+       [ 0.14375,  2.84389,  1.82226],
+       [-1.89519,  1.08853, -0.52895],
+       [-1.82089,  0.69183,  0.35564]])
+
+    assert_allclose(product.get_positions(), expected_product)
+    assert_allclose(reactant.get_positions(), original_reactant)
