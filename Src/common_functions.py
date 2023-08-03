@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import abc
+from abc import ABC
 from typing import TYPE_CHECKING
 
 import ase
+from ase.calculators.calculator import Calculator
 from ase.build import connected_indices
 from ase.geometry.analysis import Analysis
 import numpy as np
@@ -140,3 +143,32 @@ def _separate_molecules_using_list(system: ase.Atoms,
         separated[-1].set_tags(molecule)
 
     return separated
+
+
+class _CustomBaseCalculator(Calculator, ABC):
+    implemented_properties = ['forces', 'energy']
+
+    def __init__(self, molecules: list[list[int]], force_constant: float = 1.0, label=None, atoms=None,
+                 directory='.', **kwargs):
+        self.force_constant = force_constant
+        self.molecules = molecules
+
+        super().__init__(restart=None, label=label, atoms=atoms, directory=directory, **kwargs)
+
+    def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
+        self.atoms = atoms.copy()
+        molecules = separate_molecules(self.atoms, self.molecules)
+        forces = self.compute_forces(molecules)
+
+        submit_forces = np.zeros((len(self.atoms), 3))
+
+        for mol, force in zip(molecules, forces):
+            for index in mol.get_tags():
+                submit_forces[index, :] = force
+
+        self.results['forces'] = submit_forces
+        self.results['energy'] = 0.0
+
+    @abc.abstractmethod
+    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
+        pass

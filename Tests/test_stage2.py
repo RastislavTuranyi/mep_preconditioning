@@ -1,5 +1,6 @@
 import ase
 from ase.build import separate
+
 import numpy as np
 from numpy.testing import assert_allclose
 import pytest
@@ -390,7 +391,7 @@ def test_hard_sphere_calculator_calculate_nonzero(overlapping_system):
     assert calc.results['energy'] == 0.0
 
 
-def test_compute_hard_sphere_forces_zero(ester_hydrolysis_reaction):
+def test_compute_forces_zero(ester_hydrolysis_reaction):
     reactant, product = ester_hydrolysis_reaction
 
     reactant.set_positions(np.array([[-1.05141, 5.188985, 4.03545],
@@ -425,10 +426,10 @@ def test_compute_hard_sphere_forces_zero(ester_hydrolysis_reaction):
     product_molecules = separate(product)
 
     calc = HardSphereCalculator([[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [11, 12]])
-    reactant_result = calc.compute_hard_sphere_forces(reactant_molecules)
+    reactant_result = calc.compute_forces(reactant_molecules)
 
     calc.molecules = [[0, 1, 2, 3, 4, 5, 11, 12], [6, 7, 8, 9, 10]]
-    product_result = calc.compute_hard_sphere_forces(product_molecules)
+    product_result = calc.compute_forces(product_molecules)
 
     expected = np.zeros((2, 3))
 
@@ -436,13 +437,13 @@ def test_compute_hard_sphere_forces_zero(ester_hydrolysis_reaction):
     assert np.all(product_result == expected)
 
 
-def test_compute_hard_sphere_forces_clustered(overlapping_system):
+def test_compute_forces_clustered(overlapping_system):
     molecule_atom_indices = [list(range(14)), [14, 15, 16], [17, 18, 19, 20],
                              list(range(21, 44)), [44, 45, 46], [47, 48, 49]]
     separated = separate_molecules(overlapping_system, molecule_atom_indices)
     calc = HardSphereCalculator(molecule_atom_indices)
 
-    result = calc.compute_hard_sphere_forces(separated)
+    result = calc.compute_forces(separated)
     expected = np.array([[3.85357690e-01, -5.19467374e-01, 9.35067787e-02],
                          [2.67685739e-01, 1.13410846e-01, -4.38364673e-02],
                          [-2.27744444e-01, -2.38339808e-01, 1.70179298e-01],

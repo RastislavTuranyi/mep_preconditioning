@@ -9,7 +9,7 @@ from ase.optimize import BFGS
 
 import numpy as np
 
-from Src.common_functions import separate_molecules
+from Src.common_functions import separate_molecules, _CustomBaseCalculator
 
 if TYPE_CHECKING:
     from typing import Union
@@ -120,7 +120,7 @@ def simple_optimise_structure(system: ase.Atoms,
     calc = HardSphereCalculator(molecule_indices, force_constant)
     molecules = separate_molecules(system, molecule_indices)
 
-    forces = calc.compute_hard_sphere_forces(molecules)
+    forces = calc.compute_forces(molecules)
     max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
 
     for i in range(max_iter):
@@ -130,7 +130,7 @@ def simple_optimise_structure(system: ase.Atoms,
         for force, molecule in zip(forces, molecules):
             molecule.translate(force)
 
-        forces = calc.compute_hard_sphere_forces(molecules)
+        forces = calc.compute_forces(molecules)
         max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
     else:
         return None
@@ -192,31 +192,8 @@ class ConstrainedBFGS(BFGS):
         return max_force < self.fmax ** 2
 
 
-class HardSphereCalculator(Calculator):
-    implemented_properties = ['forces', 'energy']
-
-    def __init__(self, molecules: list[list[int]], force_constant: float = 1.0, label=None, atoms=None,
-                 directory='.', **kwargs):
-        self.force_constant = force_constant
-        self.molecules = molecules
-
-        super().__init__(restart=None, label=label, atoms=atoms, directory=directory, **kwargs)
-
-    def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
-        self.atoms = atoms.copy()
-        molecules = separate_molecules(self.atoms, self.molecules)
-        forces = self.compute_hard_sphere_forces(molecules)
-
-        submit_forces = np.zeros((len(self.atoms), 3))
-
-        for mol, force in zip(molecules, forces):
-            for index in mol.get_tags():
-                submit_forces[index, :] = force
-
-        self.results['forces'] = submit_forces
-        self.results['energy'] = 0.0
-
-    def compute_hard_sphere_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
+class HardSphereCalculator(_CustomBaseCalculator):
+    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
         geometric_centres = [np.mean(mol.get_positions(), axis=0) for mol in molecules]
         molecular_radii = [estimate_molecular_radius(mol, centre) for mol, centre in zip(molecules, geometric_centres)]
 

@@ -70,6 +70,7 @@ def reorient_products(product: ase.Atoms,
 
         target_vector /= n
 
+        # TODO: Look into this superposition
         rotation, _ = Rotation.align_vectors(rotating_vector,
                                              np.array([target_vector for _ in range(len(rotating_vector))]))
         rotation.apply(new_coordinates[product_mol])
