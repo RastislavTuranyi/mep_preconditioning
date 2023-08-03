@@ -66,7 +66,8 @@ def test_reorient_products(set_up_separate_molecules):
     reactant, product, _, _, reactant_molecules, product_molecules, reactivity_matrix = set_up_separate_molecules
     original_reactant = reactant.get_positions()
 
-    reorient_products(product, product_molecules, reactant, reactant_molecules)
+    reorient_products(product, [m.get_tags() for m in product_molecules],
+                      reactant, [m.get_tags() for m in reactant_molecules])
 
     expected_product = np.array([[-4.01608,  0.23907,  0.06919],
        [-3.67274, -0.78719,  0.21706],

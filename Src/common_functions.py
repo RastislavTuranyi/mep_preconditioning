@@ -96,8 +96,12 @@ def get_reactivity_matrix(reactant: ase.Atoms, product: ase.Atoms) -> dok_matrix
 
 
 # noinspection PyTypeChecker
-def get_shared_atoms(reactant_molecule: ase.Atoms, product_molecule: ase.Atoms) -> np.ndarray:
-    intersection = np.intersect1d(reactant_molecule.get_tags(), product_molecule.get_tags())
+def get_shared_atoms(reactant_molecule: Union[ase.Atoms, list[int]],
+                     product_molecule: Union[ase.Atoms, list[int]]) -> np.ndarray:
+    try:
+        intersection = np.intersect1d(reactant_molecule.get_tags(), product_molecule.get_tags())
+    except AttributeError:
+        intersection =np.intersect1d(reactant_molecule, product_molecule)
     return intersection
 
 

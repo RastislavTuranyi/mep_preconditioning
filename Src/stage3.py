@@ -40,16 +40,15 @@ def compute_reactant_rotation(coordinates: np.ndarray,
 
 
 def reorient_products(product: ase.Atoms,
-                      product_molecules: list[ase.Atoms],
+                      product_molecules: list[list[int]],
                       reactant: ase.Atoms,
-                      reactant_molecules: list[ase.Atoms]) -> None:
+                      reactant_molecules: list[list[int]]) -> None:
     product_coordinates = product.get_positions()
     reactant_coordinates = reactant.get_positions()
     new_coordinates = np.copy(product_coordinates)
 
-    # TODO: Rewrite to use list[int] instaad of list[Atoms]
     for product_mol in product_molecules:
-        molecule_coordinates = product_mol.get_positions()
+        molecule_coordinates = product_coordinates[product_mol]
         geometric_centre = np.mean(molecule_coordinates, axis=0)
         rotating_vector = molecule_coordinates - geometric_centre
 
@@ -73,7 +72,7 @@ def reorient_products(product: ase.Atoms,
 
         rotation, _ = Rotation.align_vectors(rotating_vector,
                                              np.array([target_vector for _ in range(len(rotating_vector))]))
-        rotation.apply(new_coordinates[product_mol.get_tags()])
+        rotation.apply(new_coordinates[product_mol])
 
     product.set_positions(new_coordinates)
 

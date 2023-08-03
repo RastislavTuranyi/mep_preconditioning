@@ -50,7 +50,7 @@ def main(start=None, end=None, both=None):
     product_molecules = separate_molecules(product, product_indices)
 
     reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
-    reorient_products(product, product_molecules, reactant_molecules)
+    reorient_products(product, product_indices, reactant, reactant_indices)
 
     ase.io.write('start.xyz', reactant)
     ase.io.write('end.xyz', product)

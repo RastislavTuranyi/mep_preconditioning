@@ -12,7 +12,7 @@ from Tests.common_fixtures import *
 
 
 def prepare_parameters_for_test_alpha_vector_simple() -> list[tuple[np.ndarray, np.ndarray]]:
-    reactant, product, _, _, reactant_molecules, product_molecules = set_up_separate_molecules_wrapped()
+    reactant, product, _, _, reactant_molecules, product_molecules, _ = set_up_separate_molecules_wrapped()
     matrix = get_reactivity_matrix(reactant, product)
 
     reactant_alpha1 = compute_alpha_vector(reactant.get_positions(), 0, reactant_molecules, True, matrix)
@@ -83,14 +83,26 @@ def test_get_reactivity_matrix(ester_hydrolysis_reaction):
     assert np.all(matrix.todense() == expected)
 
 
-def test_get_shared_atoms(ester_hydrolysis_reaction):
-    reactant, product = ester_hydrolysis_reaction
+vals = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-    ester = separate_molecules(reactant)[0]
-    acid = separate_molecules(product)[0]
 
-    result = get_shared_atoms(ester, acid)
-    expected = np.array([0, 1, 2, 3, 4, 5])
+@pytest.mark.parametrize(['mol1', 'mol2', 'indices', 'expected'],
+                         [(0, 0, False, [0, 1, 2, 3, 4, 5]),
+                          (0, 1, False, [6, 7, 8, 9, 10]),
+                          (1, 0, False, [11, 12]),
+                          (1, 1, False, []),
+                          (0, 0, True, [0, 1, 2, 3, 4, 5]),
+                          (0, 1, True, [6, 7, 8, 9, 10]),
+                          (1, 0, True, [11, 12]),
+                          (1, 1, True, [])],
+                         ids=[f'mols({i},{j})' for i, j in vals] + [f'indices({i},{j})' for i, j in vals])
+def test_get_shared_atoms(set_up_separate_molecules, mol1, mol2, indices, expected):
+    _, _, reactant_indices, product_indices, reactant_molecules, product_molecules, _ = set_up_separate_molecules
+
+    reactant = reactant_indices if indices else reactant_molecules
+    product = product_indices if indices else product_molecules
+
+    result = get_shared_atoms(reactant[mol1], product[mol2])
 
     assert np.all(result == expected)
 
