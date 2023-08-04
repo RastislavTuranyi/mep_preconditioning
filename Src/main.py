@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from scipy.sparse import dok_matrix
 
 
+np.seterr(all='raise')
+
+
 class InputError(Exception):
     pass
 

@@ -59,6 +59,75 @@ def ester_hydrolysis_wrapped():
 
 
 @pytest.fixture()
+def one_molecule_breakdown():
+    numbers = np.array([8, 1, 7, 6, 6, 8, 6, 6, 6, 7, 6, 7, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 7, 1])
+    positions = np.array([[-1.2072015, 3.30745609, 0.23500988],
+                          [-1.07946655, 4.31619115, 2.379028],
+                          [-3.51277448, 1.7412719, 1.38177868],
+                          [-2.20142814, 1.43050236, 1.42474572],
+                          [-1.51402415, 2.81869732, 1.28231616],
+                          [-1.38347744, 3.39725203, 2.46639759],
+                          [-1.70585696, 0.46600224, 0.31753105],
+                          [-0.24666626, 0.07932497, 0.52005358],
+                          [0.22829198, -0.86412901, -0.58282265],
+                          [1.63318177, -1.15535894, -0.40540378],
+                          [2.33848654, -2.03545905, -1.18287991],
+                          [1.82661315, -2.3053925, -2.43712381],
+                          [-1.90904282, 1.04218908, 2.41988118],
+                          [-1.83939348, 0.97154292, -0.63951363],
+                          [-2.3457762, -0.41717598, 0.33788642],
+                          [-0.12327135, -0.41052014, 1.48959191],
+                          [0.37908561, 0.97401352, 0.50637915],
+                          [0.0814004, -0.37198351, -1.55107366],
+                          [-0.37809854, -1.7824925, -0.57411687],
+                          [1.9596544, -1.16980496, 0.54991451],
+                          [1.21163614, -1.62471897, -2.85173981],
+                          [2.47160049, -2.72846852, -3.08575342],
+                          [3.39792526, -2.53838423, -0.68682543],
+                          [3.91860212, -3.14055525, -1.31326088]])
+
+    cell = np.zeros((3, 3))
+    pbc = np.array([False, False, False])
+
+    reactant = ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
+
+    positions = np.array([[2.52048597e+00, 1.06922971e+01, 2.46801414e-01],
+                          [2.40507869e+00, 9.60354097e+00, 2.59887598e+00],
+                          [-4.82930106e+00, -3.00789398e+00, 1.10371577e+00],
+                          [-3.65878459e+00, -3.33573868e+00, 1.00534056e+00],
+                          [2.77678582e+00, 9.62189029e+00, 6.94090387e-01],
+                          [2.72942352e+00, 9.05890887e+00, 1.84167869e+00],
+                          [-2.68819670e+00, -2.93014043e+00, -9.16604770e-02],
+                          [-1.43984438e+00, -2.28168252e+00, 4.99529968e-01],
+                          [-4.46419950e-01, -1.89528046e+00, -5.93276792e-01],
+                          [6.90627504e-01, -1.21636910e+00, -9.18352084e-03],
+                          [1.85213099e+00, -9.70707881e-01, -6.98462306e-01],
+                          [1.73924947e+00, -9.01391246e-01, -2.07803693e+00],
+                          [-3.18017039e+00, -3.99288105e+00, 1.74934034e+00],
+                          [-3.19618194e+00, -2.24331678e+00, -7.69670122e-01],
+                          [-2.41707711e+00, -3.83402922e+00, -6.43631955e-01],
+                          [-9.57387787e-01, -2.97453392e+00, 1.19418372e+00],
+                          [-1.72171962e+00, -1.38522505e+00, 1.05579759e+00],
+                          [-9.43789726e-01, -1.21991274e+00, -1.30116622e+00],
+                          [-1.35225879e-01, -2.79421437e+00, -1.14698967e+00],
+                          [8.85810251e-01, -1.44660311e+00, 9.54350390e-01],
+                          [8.39532259e-01, -6.53926924e-01, -2.45652668e+00],
+                          [2.51446355e+00, -4.60278734e-01, -2.54810608e+00],
+                          [2.92364061e+00, -8.41302167e-01, -2.76439478e-02],
+                          [3.73687048e+00, -5.91208899e-01, -5.79350110e-01]])
+
+    product = ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
+
+    reactant_indices = [list(range(24))]
+    product_indices = [[1, 2, 5, 6], [3, 4] + list(range(7, 24))]
+
+    reactivity_matrix = np.zeros((24, 24))
+    reactivity_matrix[4, 5], reactivity_matrix[5, 4] = -1, -1
+
+    return reactant, product, reactant_indices, product_indices, dok_matrix(reactivity_matrix)
+
+
+@pytest.fixture()
 def overlapping_system():
     numbers = np.array([6, 1, 6, 1, 1, 1, 1, 6, 1, 6, 1, 1, 1, 1, 8, 1, 1, 7, 1, 1, 1, 6, 1, 1, 6, 6, 6, 1, 1, 6, 1, 1,
                         1, 1, 1, 1, 6, 1, 1, 6, 1, 1, 1, 1, 8, 1, 1, 8, 1, 1])
@@ -118,6 +187,26 @@ def overlapping_system():
     pbc = np.array([False, False, False])
 
     return ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
+
+
+@pytest.fixture()
+def overlapping_system_reactive(overlapping_system):
+    indices = [list(range(14)), [14, 15, 16], [17, 18, 19, 20], list(range(21, 44)), [44, 45, 46], [47, 48, 49]]
+    reactivity_matrix = np.zeros((50, 50))
+    reactivity_matrix[17, 13], reactivity_matrix[13, 17] = 1, 1
+    reactivity_matrix[9, 13], reactivity_matrix[13, 9] = -1, -1
+    reactivity_matrix[9, 30], reactivity_matrix[30, 9] = 1, 1
+    reactivity_matrix[48, 49], reactivity_matrix[49, 48] = -1, -1
+    reactivity_matrix[15, 3], reactivity_matrix[3, 15] = 1, 1
+    reactivity_matrix[15, 1], reactivity_matrix[1, 15] = 1, 1
+    reactivity_matrix[15, 16], reactivity_matrix[16, 15] = -1, -1
+    reactivity_matrix[15, 17], reactivity_matrix[17, 15] = -1, -1
+    reactivity_matrix[16, 2], reactivity_matrix[2, 16] = 1, 1
+    reactivity_matrix[17, 6], reactivity_matrix[6, 17] = 1, 1
+    reactivity_matrix[1, 2], reactivity_matrix[2, 1] = -1, -1
+    reactivity_matrix[3, 6], reactivity_matrix[6, 3] = -1, -1
+
+    return overlapping_system, indices, dok_matrix(reactivity_matrix)
 
 
 @pytest.fixture()

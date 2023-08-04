@@ -14,6 +14,9 @@ if TYPE_CHECKING:
     from scipy.sparse import dok_matrix
 
 
+np.seterr(all='raise')
+
+
 def reposition_reactants(reactant: ase.Atoms,
                          reactant_molecules: list[list[int]],
                          product: ase.Atoms,
@@ -101,6 +104,9 @@ class BondFormingCalculator(_CustomBaseCalculator):
             bond_forming_atoms_in_molecule = bond_forming_atoms[0]
             bond_forming_atoms_in_other_mol = bond_forming_atoms[1]
 
+            if bond_forming_atoms_in_molecule.size == 0 or bond_forming_atoms_in_other_mol.size == 0:
+                continue
+
             n += len(bond_forming_atoms_in_molecule) * len(bond_forming_atoms_in_other_mol)
 
             for a in coordinates[bond_forming_atoms_in_molecule]:
@@ -113,7 +119,10 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
         n = 3 * len(molecule) * n
 
-        return translational_vector / n, rotational_vector / n
+        try:
+            return translational_vector / n, rotational_vector / n
+        except FloatingPointError:
+            return translational_vector, rotational_vector
 
 
 class CorrelatedPlacementCalculator(_CustomBaseCalculator):
@@ -172,4 +181,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
 
         n *= 3 * len(reactant_mol)
 
-        return translational_vector / n, rotational_vector / n
+        try:
+            return translational_vector / n, rotational_vector / n
+        except FloatingPointError:
+            return translational_vector, rotational_vector

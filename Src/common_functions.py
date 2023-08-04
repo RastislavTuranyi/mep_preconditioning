@@ -324,6 +324,7 @@ class _CustomBaseCalculator(Calculator, ABC):
 
     def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
         self.atoms = atoms.copy()
+        # TODO: Look into removing this separation step
         molecules = separate_molecules(self.atoms, self.molecules)
         forces = self.compute_forces(molecules)
 
