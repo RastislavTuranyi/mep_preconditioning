@@ -8,10 +8,11 @@ import ase.io
 
 import numpy as np
 
-from Src.common_functions import separate_molecules
-from Src.stage1 import *
+from Src.common_functions import separate_molecules, get_reactivity_matrix
+import Src.stage1 as stage1
 from Src.stage2 import fix_overlaps
 from Src.stage3 import reorient_reactants, reorient_products
+import Src.stage4 as stage4
 
 if TYPE_CHECKING:
     from typing import Union
@@ -26,7 +27,7 @@ class InputError(Exception):
 def main(start=None, end=None, both=None):
     if both is not None:
         reactant = ase.io.read(both, 0)
-        product = ase.io.read(both, 1)
+        product = ase.io.read(both, -1)
     elif start is not None and end is not None:
         reactant = ase.io.read(start)
         product = ase.io.read(end)
@@ -40,8 +41,8 @@ def main(start=None, end=None, both=None):
 
     reactivity_matrix = get_reactivity_matrix(reactant, product)
 
-    reposition_reactants(reactant, reactant_molecules, reactivity_matrix)
-    reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+    stage1.reposition_reactants(reactant, reactant_molecules, reactivity_matrix)
+    stage1.reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
 
     fix_overlaps(reactant, reactant_indices)
     fix_overlaps(product, product_indices)
@@ -51,6 +52,8 @@ def main(start=None, end=None, both=None):
 
     reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
     reorient_products(product, product_indices, reactant, reactant_indices)
+
+    stage4.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
 
     ase.io.write('start.xyz', reactant)
     ase.io.write('end.xyz', product)
