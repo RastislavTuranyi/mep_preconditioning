@@ -31,7 +31,7 @@ def reposition_reactants(reactant: ase.Atoms,
                          non_convergence_roof: Union[float, None] = 0.5,
                          trial_constants: tuple[Union[
                              None, float, tuple[float], tuple[float, float], tuple[float, float, float],
-                             list[float], np.ndarray]] = (5.0, 5.0, 100.0)
+                             list[float], np.ndarray], ...] = (5.0, 5.0, 100.0)
                          ) -> None:
     calculators = [BondFormingCalculator(reactant_molecules, reactivity_matrix, bond_forming_force_constant),
                    CorrelatedPlacementCalculator(reactant_molecules, product_molecules, product, reactivity_matrix,
