@@ -54,7 +54,7 @@ def main(start=None, end=None, both=None):
     logging.debug(f'Reactivity matrix obtained: {repr(reactivity_matrix.todense())}')
 
     stage1.reposition_reactants(reactant, reactant_indices, reactivity_matrix)
-    stage1.reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+    stage1.reposition_products(reactant, product, reactant_indices, product_indices, reactivity_matrix)
 
     if STEPWISE_OUTPUT:
         ase.io.write('stage1.xyz', [reactant, product])

@@ -22,7 +22,7 @@ def reposition_reactants(reactant: ase.Atoms,
     logging.debug('Moving reactants to origin')
     # Translate reactant molecules so that their geometric centres are (approximately) at origin
     for reactant_mol in reactant_molecules:
-        coordinates[reactant_mol] += -np.mean(coordinates[reactant_mol], axis=0)
+        coordinates[reactant_mol, :] += -np.mean(coordinates[reactant_mol], axis=0)
         logging.debug(f'Moved molecule {reactant_mol} to {repr(coordinates[reactant_mol])}.'
                       f'\nNew geometric centre = {repr(np.mean(coordinates[reactant_mol], axis=0))}')
 
@@ -31,15 +31,14 @@ def reposition_reactants(reactant: ase.Atoms,
         alpha = compute_alpha_vector(coordinates, i, reactant_molecules, True, reactivity_matrix)
         coordinates[mol1] += alpha
         logging.debug(f'Alpha vector for molecule {mol1} = {repr(alpha)}')
-        #logging.debug(f'new molecule = {mol1.get_positions()}\n\nnew system = {coordinates}\n\nmol == system = {np.allclose(mol1.get_positions(), coordinates)}')
 
     reactant.set_positions(coordinates)
 
 
-def reposition_products(product: ase.Atoms,
-                        reactant: ase.Atoms,
-                        reactant_molecules: list[ase.Atoms],
-                        product_molecules: list[ase.Atoms],
+def reposition_products(reactant: ase.Atoms,
+                        product: ase.Atoms,
+                        reactant_molecules: list[list[int]],
+                        product_molecules: list[list[int]],
                         reactivity_matrix: dok_matrix) -> None:
     n_reactants = len(reactant_molecules)
     reactant_coordinates = reactant.get_positions()
@@ -53,19 +52,18 @@ def reposition_products(product: ase.Atoms,
             reactive = get_reactive_atoms(shared, reactivity_matrix)
 
             if shared.size > 0:
-                beta += np.mean(reactant_coordinates[shared, :], axis=0)
+                beta += np.mean(reactant_coordinates[shared], axis=0)
             if reactive.size > 0:
-                sigma += np.mean(reactant_coordinates[reactive, :], axis=0)
+                sigma += np.mean(reactant_coordinates[reactive], axis=0)
 
         # Compute displacement vector from current position to the destination
         destination = (beta / n_reactants + sigma / n_reactants) / 2
-        displacement = destination - np.mean(product_mol.get_positions(), axis=0)
+        displacement = destination - np.mean(product_coordinates[product_mol], axis=0)
 
-        logging.debug(f'Molecule {product_mol.symbols} will be moved to {repr(destination)} by applying '
+        logging.debug(f'Molecule {product_mol} will be moved to {repr(destination)} by applying '
                       f'{repr(displacement)} vector.')
 
         # Move the molecule itself as well as the entire system
-        product_mol.translate(displacement)
-        product_coordinates[product_mol.get_tags()] += displacement
+        product_coordinates[product_mol] += displacement
 
     product.set_positions(product_coordinates)
