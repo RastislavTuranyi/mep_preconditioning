@@ -244,7 +244,7 @@ def _separate_molecules_using_connectivity(system: ase.Atoms) -> list[ase.Atoms]
             separated[-1].append(system[i])
             del indices[indices.index(i)]
 
-        separated[-1].set_tags(my_indices)
+        separated[-1].set_tags(sorted(my_indices))
 
     return separated
 
