@@ -5,10 +5,22 @@ import pytest
 from Src.common_functions import separate_molecules, get_reactivity_matrix
 from Src.stage1 import *
 
-from Tests.common_fixtures import ester_hydrolysis_reaction, set_up_separate_molecules
+from Tests.common_fixtures import *
 
 
-def test_reposition_reactants(set_up_separate_molecules):
+def test_reposition_reactants_one_molecule(one_molecule_breakdown):
+    reactant, product, reactant_indices, _, reactivity_matrix = one_molecule_breakdown
+
+    product_expected = product.get_positions()
+    reactant_expected = reactant.get_positions()
+
+    reposition_reactants(reactant, reactant_indices, reactivity_matrix)
+
+    assert_allclose(reactant.get_positions(), reactant_expected, rtol=0, atol=10e-9)
+    assert_allclose(product.get_positions(), product_expected)
+
+
+def test_reposition_reactants_two_molecules(set_up_separate_molecules):
     reactant, product, reactant_indices, _, _, _, reactivity_matrix = set_up_separate_molecules
 
     product_expected = product.get_positions()
@@ -32,7 +44,66 @@ def test_reposition_reactants(set_up_separate_molecules):
     assert_allclose(product.get_positions(), product_expected)
 
 
-def test_reposition_products(set_up_separate_molecules):
+def test_reposition_reactants_complex(overlapping_system_reactive):
+    reactant, reactant_indices, reactivity_matrix = overlapping_system_reactive
+
+    reactant_expected = np.array([[-9.99700357e-01, -3.49945833e-01, 5.34245873e-01],
+                                  [-5.14580357e-01, -9.91025833e-01, 1.24034587e+00],
+                                  [-3.48470357e-01, -1.77475833e-01, -2.97054127e-01],
+                                  [-1.90064036e+00, -8.14215833e-01, 1.91225873e-01],
+                                  [-1.23509036e+00, 5.82934167e-01, 1.00246587e+00],
+                                  [-1.13070357e-01, -1.11034583e+00, -7.65274127e-01],
+                                  [-8.33580357e-01, 4.63614167e-01, -1.00315413e+00],
+                                  [5.52469643e-01, 2.86794167e-01, 4.59658730e-02],
+                                  [1.03757964e+00, -3.54295833e-01, 7.52065873e-01],
+                                  [1.20368964e+00, 4.59264167e-01, -7.85334127e-01],
+                                  [3.17069643e-01, 1.21966417e+00, 5.14185873e-01],
+                                  [1.43908964e+00, -4.73615833e-01, -1.25355413e+00],
+                                  [7.18579643e-01, 1.10034417e+00, -1.49143413e+00],
+                                  [2.10462964e+00, 9.23534167e-01, -4.42304127e-01],
+                                  [1.56701111e-01, 1.51053889e-01, -2.58518333e-01],
+                                  [-5.53798889e-01, -4.47496111e-01, -4.57088333e-01],
+                                  [2.78681111e-01, 1.96683889e-01, 6.82511667e-01],
+                                  [8.89816667e-02, 2.71795417e-01, -9.19741667e-02],
+                                  [-1.98333333e-04, -3.53734583e-01, -9.05394167e-01],
+                                  [-8.22148333e-01, 3.50925417e-01, 3.81825833e-01],
+                                  [7.84211667e-01, -1.13674583e-01, 5.62985833e-01],
+                                  [2.05763696e-01, 7.93627319e-01, -6.41072029e-01],
+                                  [6.70103696e-01, 1.45743732e+00, 5.79679710e-02],
+                                  [-7.76106304e-01, 1.14994732e+00, -8.73162029e-01],
+                                  [7.90823696e-01, 7.51867319e-01, -1.53598203e+00],
+                                  [1.38243696e-01, -1.84732681e-01, -2.13112029e-01],
+                                  [-4.46816304e-01, -1.42972681e-01, 6.81797971e-01],
+                                  [-3.26086304e-01, -8.48532681e-01, -9.12152029e-01],
+                                  [1.12011370e+00, -5.41052681e-01, 1.89779710e-02],
+                                  [8.58343696e-01, 1.73023732e+00, -1.96394203e+00],
+                                  [1.77269370e+00, 3.95557319e-01, -1.30389203e+00],
+                                  [3.26483696e-01, 8.80673188e-02, -2.23502203e+00],
+                                  [1.32267370e+00, 2.39403732e+00, -1.26490203e+00],
+                                  [1.44340370e+00, 1.68847732e+00, -2.85885203e+00],
+                                  [-1.23526304e-01, 2.08654732e+00, -2.19603203e+00],
+                                  [-1.42868630e+00, 2.13337319e-01, 4.49707971e-01],
+                                  [-5.14336304e-01, -1.12133268e+00, 1.10975797e+00],
+                                  [1.75236957e-02, 5.20827319e-01, 1.38083797e+00],
+                                  [-9.78666304e-01, -1.78514268e+00, 4.10717971e-01],
+                                  [4.67533696e-01, -1.47765268e+00, 1.34184797e+00],
+                                  [-1.09939630e+00, -1.07958268e+00, 2.00466797e+00],
+                                  [1.05259370e+00, -1.51941268e+00, 4.46937971e-01],
+                                  [9.31873696e-01, -8.13852681e-01, 2.04088797e+00],
+                                  [4.00013696e-01, -2.45601268e+00, 1.76979797e+00],
+                                  [2.57510000e-01, 8.26100000e-02, -2.46110000e-01],
+                                  [-3.56300000e-02, -7.95460000e-01, -3.26500000e-02],
+                                  [-2.21880000e-01, 7.12850000e-01, 2.78760000e-01],
+                                  [-2.97466667e-02, -2.97536667e-01, 2.10460000e-01],
+                                  [6.63213333e-01, 3.49553333e-01, 2.70270000e-01],
+                                  [-6.33466667e-01, -5.20166667e-02, -4.80730000e-01]])
+
+    reposition_reactants(reactant, reactant_indices, reactivity_matrix)
+
+    assert_allclose(reactant.get_positions(), reactant_expected, rtol=0, atol=10e-9)
+
+
+def test_reposition_products_two_products_from_two_reactants(set_up_separate_molecules):
     reactant, product, reactant_indices, product_indices, _, _, reactivity_matrix = set_up_separate_molecules
 
     reactant_expected = reactant.get_positions()
@@ -49,6 +120,41 @@ def test_reposition_products(set_up_separate_molecules):
                                  [-0.357142, 1.3121595, 0.168492],
                                  [1.01821417, 2.23061208, 1.10013458],
                                  [1.09251417, 1.83391208, 1.98472458]])
+
+    reposition_products(reactant, product, reactant_indices, product_indices, reactivity_matrix)
+
+    assert_allclose(product.get_positions(), product_expected)
+    assert np.all(reactant.get_positions() == reactant_expected)
+
+
+def test_reposition_products_two_products_from_one_reactant(one_molecule_breakdown):
+    reactant, product, reactant_indices, product_indices, reactivity_matrix = one_molecule_breakdown
+
+    reactant_expected = reactant.get_positions()
+    product_expected = np.array([[2.52048597e+00, 1.06922971e+01, 2.46801414e-01],
+                                 [1.34889193e+00, 9.36115279e+00, 3.28701420e+00],
+                                 [-5.88548782e+00, -3.25028216e+00, 1.79185399e+00],
+                                 [-4.17464514e+00, -1.04204129e+00, 1.76805331e+00],
+                                 [2.26092527e+00, 1.19155877e+01, 1.45680314e+00],
+                                 [1.67323676e+00, 8.81652069e+00, 2.52981691e+00],
+                                 [-3.74438346e+00, -3.17252861e+00, 5.96477742e-01],
+                                 [-1.95570493e+00, 1.20148698e-02, 1.26224272e+00],
+                                 [-9.62280504e-01, 3.98416930e-01, 1.69435960e-01],
+                                 [1.74766950e-01, 1.07732829e+00, 7.53529231e-01],
+                                 [1.33627044e+00, 1.32298951e+00, 6.42504460e-02],
+                                 [1.22338892e+00, 1.39230614e+00, -1.31532418e+00],
+                                 [-3.69603094e+00, -1.69918366e+00, 2.51205309e+00],
+                                 [-3.71204249e+00, 5.03806098e-02, -6.95736997e-03],
+                                 [-2.93293766e+00, -1.54033183e+00, 1.19080797e-01],
+                                 [-1.47324834e+00, -6.80836530e-01, 1.95689647e+00],
+                                 [-2.23758017e+00, 9.08472340e-01, 1.81851034e+00],
+                                 [-1.45965028e+00, 1.07378465e+00, -5.38453468e-01],
+                                 [-6.51086433e-01, -5.00516980e-01, -3.84276918e-01],
+                                 [3.69949697e-01, 8.47094280e-01, 1.71706314e+00],
+                                 [3.23671705e-01, 1.63977047e+00, -1.69381393e+00],
+                                 [1.99860300e+00, 1.83341866e+00, -1.78539333e+00],
+                                 [2.40778006e+00, 1.45239522e+00, 7.35068804e-01],
+                                 [3.22100993e+00, 1.70248849e+00, 1.83362642e-01]])
 
     reposition_products(reactant, product, reactant_indices, product_indices, reactivity_matrix)
 
