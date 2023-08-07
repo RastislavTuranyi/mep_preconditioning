@@ -24,7 +24,7 @@ class ConvergenceError(Exception):
 
 def compute_alpha_vector(coordinates: np.ndarray,
                          target: int,
-                         molecules: list[ase.Atoms],
+                         molecules: Union[list[ase.Atoms], list[list[int]]],
                          reactant: bool,
                          reactivity_matrix: dok_matrix) -> np.ndarray:
     r"""

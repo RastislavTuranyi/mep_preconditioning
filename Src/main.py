@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import ase
@@ -22,6 +23,8 @@ if TYPE_CHECKING:
 
 np.seterr(all='raise')
 
+STEPWISE_OUTPUT = True
+
 
 class InputError(Exception):
     pass
@@ -31,24 +34,37 @@ def main(start=None, end=None, both=None):
     if both is not None:
         reactant = ase.io.read(both, 0)
         product = ase.io.read(both, -1)
+        ase.io.write('start.xyz', [reactant, product])
     elif start is not None and end is not None:
         reactant = ase.io.read(start)
         product = ase.io.read(end)
     else:
         raise InputError()
+    logging.basicConfig(level=logging.DEBUG)
 
     reactant_molecules = separate_molecules(reactant)
     reactant_indices = [mol.get_tags() for mol in reactant_molecules]
+    logging.debug(f'The reactant system was split into {len(reactant_indices)} molecules: {reactant_indices}')
+
     product_molecules = separate_molecules(product)
     product_indices = [mol.get_tags() for mol in product_molecules]
+    logging.debug(f'The product system was split into {len(product_indices)} molecules: {product_indices}')
 
     reactivity_matrix = get_reactivity_matrix(reactant, product)
+    logging.debug(f'Reactivity matrix obtained: {repr(reactivity_matrix.todense())}')
 
-    stage1.reposition_reactants(reactant, reactant_molecules, reactivity_matrix)
+    stage1.reposition_reactants(reactant, reactant_indices, reactivity_matrix)
     stage1.reposition_products(reactant, product, reactant_molecules, product_molecules, reactivity_matrix)
+
+    if STEPWISE_OUTPUT:
+        ase.io.write('stage1.xyz', [reactant, product])
+        return
 
     fix_overlaps(reactant, reactant_indices)
     fix_overlaps(product, product_indices)
+
+    if STEPWISE_OUTPUT:
+        ase.io.write('stage2.xyz', [reactant, product])
 
     reactant_molecules = separate_molecules(reactant, reactant_indices)
     product_molecules = separate_molecules(product, product_indices)
@@ -56,7 +72,10 @@ def main(start=None, end=None, both=None):
     reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
     reorient_products(product, product_indices, reactant, reactant_indices)
 
+    if STEPWISE_OUTPUT:
+        ase.io.write('stage3.xyz', [reactant, product])
+
     stage4.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
 
-    ase.io.write('start.xyz', reactant)
-    ase.io.write('end.xyz', product)
+    if STEPWISE_OUTPUT:
+        ase.io.write('stage4.xyz', [reactant, product])

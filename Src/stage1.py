@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import ase
@@ -14,18 +15,23 @@ if TYPE_CHECKING:
 
 
 def reposition_reactants(reactant: ase.Atoms,
-                         reactant_molecules: list[ase.Atoms],
+                         reactant_molecules: list[list[int]],
                          reactivity_matrix: dok_matrix) -> None:
     coordinates = reactant.get_positions()
+
+    logging.debug('Moving reactants to origin')
     # Translate reactant molecules so that their geometric centres are (approximately) at origin
     for reactant_mol in reactant_molecules:
-        reactant_mol.translate(-np.mean(reactant_mol.get_positions(), axis=0))
+        coordinates[reactant_mol] += -np.mean(coordinates[reactant_mol], axis=0)
+        logging.debug(f'Moved molecule {reactant_mol} to {repr(coordinates[reactant_mol])}.'
+                      f'\nNew geometric centre = {repr(np.mean(coordinates[reactant_mol], axis=0))}')
 
     # Calculate the geometric centres of bond-forming atoms (A, alpha)
     for i, mol1 in enumerate(reactant_molecules):
         alpha = compute_alpha_vector(coordinates, i, reactant_molecules, True, reactivity_matrix)
-        mol1.translate(alpha)
-        coordinates[mol1.get_tags()] += alpha
+        coordinates[mol1] += alpha
+        logging.debug(f'Alpha vector for molecule {mol1} = {repr(alpha)}')
+        #logging.debug(f'new molecule = {mol1.get_positions()}\n\nnew system = {coordinates}\n\nmol == system = {np.allclose(mol1.get_positions(), coordinates)}')
 
     reactant.set_positions(coordinates)
 
@@ -54,6 +60,9 @@ def reposition_products(product: ase.Atoms,
         # Compute displacement vector from current position to the destination
         destination = (beta / n_reactants + sigma / n_reactants) / 2
         displacement = destination - np.mean(product_mol.get_positions(), axis=0)
+
+        logging.debug(f'Molecule {product_mol.symbols} will be moved to {repr(destination)} by applying '
+                      f'{repr(displacement)} vector.')
 
         # Move the molecule itself as well as the entire system
         product_mol.translate(displacement)
