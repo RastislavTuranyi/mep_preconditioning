@@ -53,7 +53,7 @@ class TestBondFormingCalculator:
         assert_allclose(forces, expected, rtol=0, atol=1e-7)
 
     def test_compute_forces_one_molecule(self, one_molecule_breakdown):
-        reactant, _, reactant_indices, _, reactivity_matrix = one_molecule_breakdown
+        reactant, _, reactant_indices, _, _, _, reactivity_matrix = one_molecule_breakdown
 
         calc = BondFormingCalculator(reactant_indices, reactivity_matrix, 1.0)
         calc.atoms = reactant
@@ -99,7 +99,7 @@ class TestBondFormingCalculator:
         assert_allclose(rotational_vector, expected_rot, rtol=0, atol=1e-7)
 
     def test_compute_vectors_one_molecule(self, one_molecule_breakdown):
-        reactant, _, reactant_indices, _, reactivity_matrix = one_molecule_breakdown
+        reactant, _, reactant_indices, _, _, _, reactivity_matrix = one_molecule_breakdown
 
         calc = BondFormingCalculator(reactant_indices, reactivity_matrix, 1.0)
 
@@ -175,7 +175,7 @@ class TestCorrelatedPlacementCalculator:
         assert_allclose(forces, expected, rtol=0, atol=1e-7)
 
     def test_compute_forces_one_molecule(self, one_molecule_breakdown):
-        reactant, product, reactant_indices, product_indices, reactivity_matrix = one_molecule_breakdown
+        reactant, product, reactant_indices, product_indices, _, _, reactivity_matrix = one_molecule_breakdown
 
         calc = CorrelatedPlacementCalculator(reactant_indices, product_indices, product, reactivity_matrix, 1.0)
         calc.atoms = reactant
@@ -205,7 +205,7 @@ class TestCorrelatedPlacementCalculator:
         assert_allclose(rotational_vector, expected_rot, rtol=0, atol=1e-7)
 
     def test_compute_vectors_one_molecule(self, one_molecule_breakdown):
-        reactant, product, reactant_indices, product_indices, reactivity_matrix = one_molecule_breakdown
+        reactant, product, reactant_indices, product_indices, _, _, reactivity_matrix = one_molecule_breakdown
 
         calc = CorrelatedPlacementCalculator(reactant_indices, product_indices, product, reactivity_matrix, 1.0)
 

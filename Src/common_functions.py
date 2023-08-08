@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 from abc import ABC
+import logging
 from typing import TYPE_CHECKING
 
 import ase
@@ -136,14 +137,19 @@ def optimise_system(system: ase.Atoms,
     system.calc = calc
     if non_convergence_roof is None or non_convergence_limit is None:
         dyn = BFGS(system)
+        logging.debug(f'Using default ASE BFGS optimiser with the {repr(calc)} calculator.')
     else:
         dyn = ConstrainedBFGS(system, non_convergence_limit, non_convergence_roof)
+        logging.debug(f'Using custom constrained BFGS optimiser with {non_convergence_limit=} and '
+                      f'{non_convergence_roof=}. Calculator used is {repr(calc)}.')
 
     # Try using ASE optimiser, but switch to custom optimisation scheme if it does not converge
     try:
         dyn.run(fmax=fmax, steps=max_iter)
         return None
     except OptimisationNotConvergingError as e:
+        logging.info('Optimisation with ASE\'s BFGS optimiser failed to converge; using custom optimisation scheme '
+                     'with increasing force constants.')
         if trial_constants is None:
             raise ConvergenceError(f'Molecule overlaps failed to be fixed: The geometry optimisation using '
                                    f'`ase.optimize.BFGS` was aborted early (iteration={dyn._total_iteration}, latest '
@@ -160,11 +166,13 @@ def optimise_system(system: ase.Atoms,
 
         # Create a range of increasing force constants
         trial_constants = optimise_system_create_trial_constants(force_constant, trial_constants)
+        logging.debug(f'Using following trial force constants for optimisation: {trial_constants}')
 
         # Try optimising structure using a series of increasing force constants
         for trial_constant in trial_constants:
             # TODO: Talk about this function and its results when used after BFGS vs without
             calc.force_constant = trial_constant
+            logging.info(f'Attempting to optimise with a force constant of {trial_constant}')
             new_positions = simple_optimise_structure(system, calc, molecules, fmax, max_iter)
             if new_positions is not None:
                 break
@@ -176,6 +184,7 @@ def optimise_system(system: ase.Atoms,
                                    f' convergence to be reached, though possibly at the cost of the molecules ending '
                                    f'further apart.')
 
+        logging.info('Optimisation converged.')
         return new_positions
 
 
@@ -216,6 +225,8 @@ def simple_optimise_structure(system: ase.Atoms,
         forces = calc.compute_forces(molecules)
         max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
     else:
+        logging.info(f'Optimisation has not converged; highest force is {max_force}')
+        logging.debug(f'All forces = {forces}')
         return None
 
     new_positions = np.zeros((len(system), 3))

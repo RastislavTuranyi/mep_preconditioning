@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import ase
@@ -39,6 +40,22 @@ def compute_reactant_rotation(coordinates: np.ndarray,
     return rotation
 
 
+def reorient_reactants(reactant: ase.Atoms,
+                       molecules: list[ase.Atoms],
+                       reactivity_matrix: dok_matrix) -> None:
+    coordinates = reactant.get_positions()
+    new_coordinates = np.copy(coordinates)
+
+    for i, molecule in enumerate(molecules):
+        rotation = compute_reactant_rotation(coordinates, i, molecules, reactivity_matrix)
+        new_coordinates[molecule.get_tags()] = rotation.apply(new_coordinates[molecule.get_tags()])
+        logging.debug(f'Rotation {rotation.as_quat(False)} applied to reactant {i}.')
+
+    reactant.set_positions(new_coordinates)
+    logging.debug(f'Reactant coordinates changed successfully ({not np.all(new_coordinates == coordinates)}) to'
+                  f' {reactant.positions}')
+
+
 def reorient_products(product: ase.Atoms,
                       product_molecules: list[list[int]],
                       reactant: ase.Atoms,
@@ -73,19 +90,9 @@ def reorient_products(product: ase.Atoms,
         # TODO: Look into this superposition
         rotation, _ = Rotation.align_vectors(rotating_vector,
                                              np.array([target_vector for _ in range(len(rotating_vector))]))
-        rotation.apply(new_coordinates[product_mol])
+        new_coordinates[product_mol] = rotation.apply(new_coordinates[product_mol])
+        logging.debug(f'Rotation {rotation.as_quat(False)} applied to product {product_mol}.')
 
     product.set_positions(new_coordinates)
-
-
-def reorient_reactants(reactant: ase.Atoms,
-                       molecules: list[ase.Atoms],
-                       reactivity_matrix: dok_matrix) -> None:
-    coordinates = reactant.get_positions()
-    new_coordinates = np.copy(coordinates)
-
-    for i, molecule in enumerate(molecules):
-        rotation = compute_reactant_rotation(coordinates, i, molecules, reactivity_matrix)
-        rotation.apply(new_coordinates[molecule.get_tags()])
-
-    reactant.set_positions(new_coordinates)
+    logging.debug(f'Product coordinates changed successfully ({not np.all(new_coordinates == product_coordinates)}) to'
+                  f' {product.positions}')

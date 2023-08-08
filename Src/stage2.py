@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 from itertools import combinations
-from typing import TYPE_CHECKING
+import logging
+from typing import Union
 
 import ase
-
 import numpy as np
 
-from Src.common_functions import separate_molecules, _CustomBaseCalculator, optimise_system
-
-if TYPE_CHECKING:
-    from typing import Union
-    from numpy.typing import ArrayLike
-    from scipy.sparse import dok_matrix
+from Src.common_functions import _CustomBaseCalculator, optimise_system
 
 
 def determine_overlaps(molecules: list[ase.Atoms],

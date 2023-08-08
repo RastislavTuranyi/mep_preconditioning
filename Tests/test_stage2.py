@@ -6,7 +6,7 @@ from numpy.testing import assert_allclose
 import pytest
 
 from Src.stage2 import *
-from Src.common_functions import ConvergenceError
+from Src.common_functions import ConvergenceError, separate_molecules
 
 from Tests.common_fixtures import restructure, ester_hydrolysis_reaction, overlapping_system
 

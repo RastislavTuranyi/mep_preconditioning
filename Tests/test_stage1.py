@@ -9,7 +9,7 @@ from Tests.common_fixtures import *
 
 
 def test_reposition_reactants_one_molecule(one_molecule_breakdown):
-    reactant, product, reactant_indices, _, reactivity_matrix = one_molecule_breakdown
+    reactant, product, reactant_indices, _, _, _, reactivity_matrix = one_molecule_breakdown
 
     product_expected = product.get_positions()
     reactant_expected = reactant.get_positions()
@@ -128,35 +128,35 @@ def test_reposition_products_two_products_from_two_reactants(set_up_separate_mol
 
 
 def test_reposition_products_two_products_from_one_reactant(one_molecule_breakdown):
-    reactant, product, reactant_indices, product_indices, reactivity_matrix = one_molecule_breakdown
+    reactant, product, reactant_indices, product_indices, _, _, reactivity_matrix = one_molecule_breakdown
 
     reactant_expected = reactant.get_positions()
-    product_expected = np.array([[2.52048597e+00, 1.06922971e+01, 2.46801414e-01],
-                                 [1.34889193e+00, 9.36115279e+00, 3.28701420e+00],
-                                 [-5.88548782e+00, -3.25028216e+00, 1.79185399e+00],
-                                 [-4.17464514e+00, -1.04204129e+00, 1.76805331e+00],
-                                 [2.26092527e+00, 1.19155877e+01, 1.45680314e+00],
-                                 [1.67323676e+00, 8.81652069e+00, 2.52981691e+00],
-                                 [-3.74438346e+00, -3.17252861e+00, 5.96477742e-01],
-                                 [-1.95570493e+00, 1.20148698e-02, 1.26224272e+00],
-                                 [-9.62280504e-01, 3.98416930e-01, 1.69435960e-01],
-                                 [1.74766950e-01, 1.07732829e+00, 7.53529231e-01],
-                                 [1.33627044e+00, 1.32298951e+00, 6.42504460e-02],
-                                 [1.22338892e+00, 1.39230614e+00, -1.31532418e+00],
-                                 [-3.69603094e+00, -1.69918366e+00, 2.51205309e+00],
-                                 [-3.71204249e+00, 5.03806098e-02, -6.95736997e-03],
-                                 [-2.93293766e+00, -1.54033183e+00, 1.19080797e-01],
-                                 [-1.47324834e+00, -6.80836530e-01, 1.95689647e+00],
-                                 [-2.23758017e+00, 9.08472340e-01, 1.81851034e+00],
-                                 [-1.45965028e+00, 1.07378465e+00, -5.38453468e-01],
-                                 [-6.51086433e-01, -5.00516980e-01, -3.84276918e-01],
-                                 [3.69949697e-01, 8.47094280e-01, 1.71706314e+00],
-                                 [3.23671705e-01, 1.63977047e+00, -1.69381393e+00],
-                                 [1.99860300e+00, 1.83341866e+00, -1.78539333e+00],
-                                 [2.40778006e+00, 1.45239522e+00, 7.35068804e-01],
-                                 [3.22100993e+00, 1.70248849e+00, 1.83362642e-01]])
+    product_expected = np.array([[-1.45985413, 4.2320747, 0.63396219],
+                                 [-1.57526141, 3.14331857, 2.98603675],
+                                 [-4.17810812, -1.40505203, 1.2137193],
+                                 [-3.00759165, -1.73289673, 1.11534409],
+                                 [-1.20355428, 3.16166789, 1.08125116],
+                                 [-1.25091658, 2.59868647, 2.22883946],
+                                 [-2.03700376, -1.32729848, 0.01834306],
+                                 [-0.78865144, -0.67884057, 0.6095335],
+                                 [0.20477299, -0.29243851, -0.48327326],
+                                 [1.34182045, 0.38647285, 0.10082001],
+                                 [2.50332393, 0.63213407, -0.58845877],
+                                 [2.39044241, 0.7014507, -1.9680334],
+                                 [-2.52897745, -2.3900391, 1.85934387],
+                                 [-2.544989, -0.64047483, -0.65966659],
+                                 [-1.76588417, -2.23118727, -0.53362842],
+                                 [-0.30619485, -1.37169197, 1.30418725],
+                                 [-1.07052668, 0.2176169, 1.16580112],
+                                 [-0.29259678, 0.38292921, -1.19116269],
+                                 [0.51596706, -1.19137242, -1.03698614],
+                                 [1.53700319, 0.15623884, 1.06435392],
+                                 [1.4907252, 0.94891502, -2.34652315],
+                                 [3.16565649, 1.14256321, -2.43810255],
+                                 [3.57483355, 0.76153978, 0.08235958],
+                                 [4.38806342, 1.01163305, -0.46934658]])
 
     reposition_products(reactant, product, reactant_indices, product_indices, reactivity_matrix)
-
-    assert_allclose(product.get_positions(), product_expected)
+    print(repr(product.positions))
+    assert_allclose(product.get_positions(), product_expected, rtol=0, atol=10e-9)
     assert np.all(reactant.get_positions() == reactant_expected)

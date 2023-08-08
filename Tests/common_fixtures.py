@@ -119,12 +119,20 @@ def one_molecule_breakdown():
     product = ase.Atoms.fromdict({'numbers': numbers, 'positions': positions, 'cell': cell, 'pbc': pbc})
 
     reactant_indices = [list(range(24))]
-    product_indices = [[1, 2, 5, 6], [3, 4] + list(range(7, 24))]
+    product_indices = [[0, 1, 4, 5], [2, 3] + list(range(6, 24))]
+
+    reactant_molecules = separate(reactant)
+    reactant_molecules[0].set_tags(reactant_indices[0])
+
+    product_molecules = separate(product)
+    product_molecules[0].set_tags(product_indices[0])
+    product_molecules[1].set_tags(product_indices[1])
 
     reactivity_matrix = np.zeros((24, 24))
     reactivity_matrix[4, 5], reactivity_matrix[5, 4] = -1, -1
 
-    return reactant, product, reactant_indices, product_indices, dok_matrix(reactivity_matrix)
+    return reactant, product, reactant_indices, product_indices, reactant_molecules, product_molecules, \
+                dok_matrix(reactivity_matrix)
 
 
 @pytest.fixture()
