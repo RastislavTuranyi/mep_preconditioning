@@ -237,12 +237,18 @@ def simple_optimise_structure(system: ase.Atoms,
     forces = calc.compute_forces(molecules)
     max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
 
+    trial_system = system.copy()
+
     for i in range(max_iter):
         if max_force < fmax:
             break
 
-        for force, molecule in zip(forces, molecules):
-            molecule.translate(force)
+        coordinates = trial_system.get_positions()
+        for force, molecule in zip(forces, molecule_indices):
+            coordinates[molecule] += force
+
+        trial_system.set_positions(coordinates)
+        calc.atoms = trial_system
 
         forces = calc.compute_forces(molecules)
         max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
@@ -251,11 +257,7 @@ def simple_optimise_structure(system: ase.Atoms,
         logging.debug(f'All forces = {forces}')
         return None
 
-    new_positions = np.zeros((len(system), 3))
-    for molecule, indices in zip(molecules, molecule_indices):
-        new_positions[indices] = molecule.get_positions()
-
-    return new_positions
+    return trial_system.get_positions()
 
 
 def separate_molecules(system: ase.Atoms, molecules: Union[None, list[list[int]]] = None) -> list[ase.Atoms]:
