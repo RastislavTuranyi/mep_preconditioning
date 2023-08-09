@@ -28,17 +28,6 @@ def determine_overlaps(molecules: list[ase.Atoms],
     return overlaps
 
 
-def estimate_molecular_radius(molecule: ase.Atoms, geometric_centre: np.ndarray) -> float:
-    distances = np.zeros(len(molecule))
-    for i, atom in enumerate(molecule.get_positions()):
-        distances[i] = np.linalg.norm(atom - geometric_centre)
-
-    mean = np.mean(distances)
-    std = np.std(distances)
-
-    return mean + 2 * std
-
-
 def fix_overlaps(system: ase.Atoms,
                  molecules: list[list[int]],
                  force_constant: float = 1.0,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 import ase
@@ -41,6 +42,7 @@ def reposition_reactants(reactant: ase.Atoms,
     force_constants = [bond_forming_force_constant, correlated_placement_force_constant, hard_sphere_force_constant]
 
     for calculator, force_constant, trial_constants in zip(calculators, force_constants, trial_constants):
+        logging.info(f'Optimising reactant using {calculator}')
         reactant.calc = calculator
 
         coordinates = optimise_system(reactant, calculator, reactant_molecules, force_constant, fmax, max_iter,

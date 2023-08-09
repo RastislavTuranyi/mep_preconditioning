@@ -53,6 +53,22 @@ def compute_alpha_vector(coordinates: np.ndarray,
     return alpha / n_mol
 
 
+def estimate_molecular_radius(molecule: Union[ase.Atoms, np.ndarray], geometric_centre: np.ndarray) -> float:
+    distances = np.zeros(len(molecule))
+    try:
+        coordinates = molecule.get_positions()
+    except AttributeError:
+        coordinates = molecule
+
+    for i, atom in enumerate(coordinates):
+        distances[i] = np.linalg.norm(atom - geometric_centre)
+
+    mean = np.mean(distances)
+    std = np.std(distances)
+
+    return mean + 2 * std
+
+
 def get_all_bond_forming_atoms_in_molecule(molecule: ase.Atoms,
                                            reactants: bool,
                                            reactivity_matrix: dok_matrix) -> np.ndarray:
@@ -117,6 +133,12 @@ def get_reactivity_matrix(reactant: ase.Atoms, product: ase.Atoms) -> dok_matrix
 # noinspection PyTypeChecker
 def get_shared_atoms(reactant_molecule: Union[ase.Atoms, list[int]],
                      product_molecule: Union[ase.Atoms, list[int]]) -> np.ndarray:
+    """
+    C set
+    :param reactant_molecule:
+    :param product_molecule:
+    :return:
+    """
     try:
         intersection = np.intersect1d(reactant_molecule.get_tags(), product_molecule.get_tags())
     except AttributeError:
@@ -133,7 +155,8 @@ def optimise_system(system: ase.Atoms,
                     non_convergence_limit: Union[float, None] = 0.001,
                     non_convergence_roof: Union[float, None] = 0.5,
                     trial_constants: Union[None, float, tuple[float], tuple[float, float], tuple[float, float, float],
-                                           list[float], np.ndarray] = 10.0) -> Union[np.ndarray, None]:
+                                           list[float], np.ndarray] = 10.0
+                    ) -> Union[np.ndarray, None]:
     system.calc = calc
     if non_convergence_roof is None or non_convergence_limit is None:
         dyn = BFGS(system)
@@ -174,8 +197,10 @@ def optimise_system(system: ase.Atoms,
             calc.force_constant = trial_constant
             logging.info(f'Attempting to optimise with a force constant of {trial_constant}')
             new_positions = simple_optimise_structure(system, calc, molecules, fmax, max_iter)
+
             if new_positions is not None:
-                break
+                logging.info('Optimisation converged.')
+                return new_positions
         else:
             raise ConvergenceError('Molecule overlaps failed to converge: molecule overlaps could not be resolved '
                                    f'within the provided iterations ({max_iter=}) and range of force constants ('
@@ -183,9 +208,6 @@ def optimise_system(system: ase.Atoms,
                                    f'Increasing the upper bound of the `trial_constants` parameter should allow for '
                                    f' convergence to be reached, though possibly at the cost of the molecules ending '
                                    f'further apart.')
-
-        logging.info('Optimisation converged.')
-        return new_positions
 
 
 def optimise_system_create_trial_constants(force_constant: float,
@@ -287,12 +309,16 @@ class ConstrainedBFGS(BFGS):
                  atoms: ase.Atoms,
                  non_convergence_limit: float = 0.001,
                  non_convergence_roof: float = 0.5,
+                 increase_limit: float = 3.0,
                  logfile: str = '-',
                  maxstep: Union[float, None] = None,
                  master: Union[bool, None] = None,
                  alpha: Union[float, None] = None):
         self._total_fmax: float = 0.0
         self._total_iteration: float = 0.0
+        self._first_fmax: Union[float, None] = None
+
+        self._increase_limit = increase_limit
         self.non_convergence_limit = non_convergence_limit
         self.non_convergence_roof = non_convergence_roof
 
@@ -315,7 +341,11 @@ class ConstrainedBFGS(BFGS):
 
         new_average = self._total_fmax / self._total_iteration
 
-        if max_force > self.non_convergence_roof and abs(average_until_now - new_average) < self.non_convergence_limit:
+        if self._first_fmax is None:
+            self._first_fmax = max_force
+
+        if max_force > self.non_convergence_roof and (abs(average_until_now - new_average) < self.non_convergence_limit
+                                                      or max_force > self._increase_limit * self._first_fmax):
             raise OptimisationNotConvergingError(max_force, average_until_now, new_average)
 
         if hasattr(self.atoms, "get_curvature"):
