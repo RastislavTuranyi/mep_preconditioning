@@ -7,13 +7,12 @@ from typing import Union
 import ase
 import numpy as np
 
-from Src.common_functions import _CustomBaseCalculator, optimise_system
+from Src.common_functions import _CustomBaseCalculator, optimise_system, estimate_molecular_radius
 
 
-def determine_overlaps(molecules: list[ase.Atoms],
+def determine_overlaps(size: int,
                        geometric_centres: list[np.ndarray],
                        estimated_radii: list[float]) -> np.ndarray:
-    size = len(molecules)
     overlaps = np.zeros((size, size), dtype=np.int8)
     indices = list(range(size))
 
@@ -37,7 +36,7 @@ def fix_overlaps(system: ase.Atoms,
                  non_convergence_roof: Union[float, None] = 0.5,
                  trial_constants: Union[None, float, tuple[float], tuple[float, float], tuple[float, float, float],
                                         list[float], np.ndarray] = 10.0):
-    system.calc = HardSphereCalculator(molecules, force_constant)
+    system.calc = HardSphereCalculator(molecules, force_constant, atoms=system)
 
     coordinates = optimise_system(system, system.calc, molecules, force_constant, fmax, max_iter, non_convergence_limit,
                                   non_convergence_roof, trial_constants)
@@ -47,19 +46,23 @@ def fix_overlaps(system: ase.Atoms,
 
 
 class HardSphereCalculator(_CustomBaseCalculator):
-    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
-        geometric_centres = [np.mean(mol.get_positions(), axis=0) for mol in molecules]
-        molecular_radii = [estimate_molecular_radius(mol, centre) for mol, centre in zip(molecules, geometric_centres)]
+    def compute_forces(self) -> np.ndarray:
+        coordinates = self.atoms.get_positions()
 
-        overlaps = determine_overlaps(molecules, geometric_centres, molecular_radii)
+        geometric_centres = [np.mean(coordinates[mol], axis=0) for mol in self.molecules]
+        molecular_radii = [estimate_molecular_radius(coordinates[mol], centre) for mol, centre in
+                           zip(self.molecules, geometric_centres)]
 
-        forces = np.zeros((len(molecules), 3), dtype=np.float64)
-        for i, affected_mol in enumerate(molecules):
+        n_mol = len(self.molecules)
+        overlaps = determine_overlaps(n_mol, geometric_centres, molecular_radii)
+
+        forces = np.zeros((n_mol, 3), dtype=np.float64)
+        for i, affected_mol in enumerate(self.molecules):
             n_atoms = len(affected_mol)
             n = 3 * n_atoms * np.sum(overlaps[i, :])
 
             pairwise_forces = []
-            for j, other_mol in enumerate(molecules):
+            for j, _ in enumerate(self.molecules):
                 if overlaps[i, j] == 0 or i == j:
                     continue
 

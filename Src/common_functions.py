@@ -234,7 +234,7 @@ def simple_optimise_structure(system: ase.Atoms,
                               max_iter: int = 500) -> Union[np.ndarray, None]:
     molecules = separate_molecules(system, molecule_indices)
 
-    forces = calc.compute_forces(molecules)
+    forces = calc.compute_forces()
     max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
 
     trial_system = system.copy()
@@ -250,7 +250,7 @@ def simple_optimise_structure(system: ase.Atoms,
         trial_system.set_positions(coordinates)
         calc.atoms = trial_system
 
-        forces = calc.compute_forces(molecules)
+        forces = calc.compute_forces()
         max_force = np.sqrt(np.max(np.sum(forces ** 2, axis=1)))
     else:
         logging.info(f'Optimisation has not converged; highest force is {max_force}')
@@ -367,19 +367,18 @@ class _CustomBaseCalculator(Calculator, ABC):
 
     def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
         self.atoms = atoms.copy()
-        # TODO: Look into removing this separation step
-        molecules = separate_molecules(self.atoms, self.molecules)
-        forces = self.compute_forces(molecules)
+
+        forces = self.compute_forces()
 
         submit_forces = np.zeros((len(self.atoms), 3))
 
-        for mol, force in zip(molecules, forces):
-            for index in mol.get_tags():
+        for mol, force in zip(self.molecules, forces):
+            for index in mol:
                 submit_forces[index, :] = force
 
         self.results['forces'] = submit_forces
         self.results['energy'] = 0.0
 
     @abc.abstractmethod
-    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
+    def compute_forces(self) -> np.ndarray:
         pass

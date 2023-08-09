@@ -34,11 +34,11 @@ class AtomAtomHardSphereCalculator(_CustomBaseCalculator):
 
     def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
         coordinates = self.atoms.get_positions()
-        forces = np.zeros((len(molecules), 3), dtype=np.float64)
+        forces = np.zeros((len(self.molecules), 3), dtype=np.float64)
 
         for i, molecule in enumerate(self.molecules):
             geometric_centre = np.mean(coordinates[molecule], axis=0)
-            translational_vector, rotational_vector = self.compute_vectors(coordinates, i, molecules, geometric_centre)
+            translational_vector, rotational_vector = self.compute_vectors(coordinates, i, molecule, geometric_centre)
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
@@ -46,12 +46,12 @@ class AtomAtomHardSphereCalculator(_CustomBaseCalculator):
 
         return forces
 
-    def compute_vectors(self, coordinates, index, molecules: list[ase.Atoms], geometric_centre):
+    def compute_vectors(self, coordinates, index, mol1: list[int], geometric_centre):
         translational_vector, rotational_vector = np.zeros(3), np.zeros(3)
         n = 0.0
-        mol1 = molecules[index]
+        atomic_numbers = self.atoms.get_atomic_numbers()
 
-        for i, mol2 in enumerate(molecules):
+        for i, mol2 in enumerate(self.molecules):
             if i == index:
                 continue
 
@@ -59,8 +59,7 @@ class AtomAtomHardSphereCalculator(_CustomBaseCalculator):
             for a in mol1:
                 phi = 1.5 if a in bond_forming_atoms else 2
                 for b in mol2:
-                    threshold = np.mean([covalent_radii[mol1.get_atomic_numbers()[a]],
-                                         covalent_radii[mol2.get_atomic_numbers()[b]]])
+                    threshold = np.mean([covalent_radii[atomic_numbers[a]], covalent_radii[atomic_numbers[b]]])
 
                     diff_ba = coordinates[b] - coordinates[a]
                     diff_ag = coordinates[a] - geometric_centre
@@ -93,19 +92,21 @@ class HardSphereCalculator(_CustomBaseCalculator):
 
         super().__init__(reactant_molecules, force_constant, label=label, atoms=atoms, directory=directory, **kwargs)
 
-    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
-        reactant_geometric_centres = [np.mean(mol.get_positions(), axis=0) for mol in molecules]
+    def compute_forces(self) -> np.ndarray:
+        coordinates = self.atoms.get_positions()
+
+        reactant_geometric_centres = [np.mean(coordinates[mol], axis=0) for mol in self.molecules]
         product_geometric_centres = [np.mean(self.product_coordinates[mol], axis=0) for mol in self.product_molecules]
 
-        reactant_molecular_radii = [estimate_molecular_radius(mol, centre) for mol, centre in
-                                    zip(molecules, reactant_geometric_centres)]
+        reactant_molecular_radii = [estimate_molecular_radius(coordinates[mol], centre) for mol, centre in
+                                    zip(self.molecules, reactant_geometric_centres)]
         product_molecular_radii = [estimate_molecular_radius(self.product_coordinates[mol], centre) for mol, centre in
-                                    zip(self.product_molecules, product_geometric_centres)]
+                                   zip(self.product_molecules, product_geometric_centres)]
 
         overlaps = self.determine_overlaps(reactant_geometric_centres, product_geometric_centres,
                                            reactant_molecular_radii, product_molecular_radii)
 
-        forces = np.zeros((len(molecules), 3), dtype=np.float64)
+        forces = np.zeros((len(self.molecules), 3), dtype=np.float64)
         for i, reactant_mol in enumerate(self.molecules):
             n_atoms = len(reactant_mol)
             n = 3 * n_atoms * np.sum(overlaps[i, :])

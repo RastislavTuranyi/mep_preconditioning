@@ -65,9 +65,9 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
         super().__init__(molecules, force_constant, label=label, atoms=atoms, directory=directory, **kwargs)
 
-    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
+    def compute_forces(self) -> np.ndarray:
         coordinates = self.atoms.get_positions()
-        forces = np.zeros((len(molecules), 3), dtype=np.float64)
+        forces = np.zeros((len(self.molecules), 3), dtype=np.float64)
 
         for i, molecule in enumerate(self.molecules):
             geometric_centre = np.mean(coordinates[molecule], axis=0)
@@ -144,9 +144,9 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
 
         super().__init__(reactant_molecules, force_constant, label=label, atoms=atoms, directory=directory, **kwargs)
 
-    def compute_forces(self, molecules: list[ase.Atoms]) -> np.ndarray:
+    def compute_forces(self) -> np.ndarray:
         coordinates = self.atoms.get_positions()
-        forces = np.zeros((len(molecules), 3), dtype=np.float64)
+        forces = np.zeros((len(self.molecules), 3), dtype=np.float64)
 
         for i, molecule in enumerate(self.molecules):
             geometric_centre = np.mean(coordinates[molecule], axis=0)
