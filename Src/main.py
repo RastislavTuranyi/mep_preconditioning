@@ -82,6 +82,8 @@ def main(start=None, end=None, both=None):
     logging.info('** Starting STAGE 4 **')
     try:
         stage4.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
+        if STEPWISE_OUTPUT:
+            ase.io.write('stage4.xyz', [reactant, product])
     except Exception:
 
         if STEPWISE_OUTPUT:

@@ -8,6 +8,7 @@ import numpy as np
 
 from Src.common_functions import *
 from Src.common_functions import _CustomBaseCalculator
+from Src.optimise import DualBFGS
 from Src.stage2 import HardSphereCalculator
 
 if TYPE_CHECKING:
@@ -27,30 +28,98 @@ def reposition_reactants(reactant: ase.Atoms,
                          correlated_placement_force_constant: float = 1.0,
                          hard_sphere_force_constant: float = 50.0,
                          fmax: float = 1e-5,
-                         max_iter: int = 1000,
+                         max_iter: int = 500,
                          non_convergence_limit: Union[float, None] = 0.001,
                          non_convergence_roof: Union[float, None] = 0.5,
                          trial_constants: tuple[Union[
-                             None, float, tuple[float], tuple[float, float], tuple[float, float, float],
-                             list[float], np.ndarray], ...] = (5.0, 5.0, 100.0)
+                                                    None, float, tuple[float], tuple[float, float], tuple[
+                                                        float, float, float],
+                                                    list[float], np.ndarray], ...] = (5.0, 5.0, 100.0)
                          ) -> None:
-    calculators = [BondFormingCalculator(reactant_molecules, reactivity_matrix, bond_forming_force_constant),
-                   CorrelatedPlacementCalculator(reactant_molecules, product_molecules, product, reactivity_matrix,
-                                                 correlated_placement_force_constant),
-                   HardSphereCalculator(reactant_molecules, hard_sphere_force_constant)]
+    reactant.calc = TestCalculator(reactant_molecules, product_molecules, product, reactivity_matrix, calc_reactant=True)
+    product.calc = TestCalculator(product_molecules, reactant_molecules, reactant, reactivity_matrix, calc_reactant=False)
 
-    force_constants = [bond_forming_force_constant, correlated_placement_force_constant, hard_sphere_force_constant]
+    # dyn = DualBFGS(reactant, product, maxstep=0.05)
+    # result = dyn.run(fmax=fmax, steps=max_iter)
+    # print(result)
 
-    # CDE does the optimisation of combined force rather than sequentially like below
-    for calculator, force_constant, trial_constants in zip(calculators, force_constants, trial_constants):
-        logging.info(f'Optimising reactant using {calculator}')
-        reactant.calc = calculator
+    reactant.calc.atoms = reactant
+    product.calc.atoms = product
 
-        coordinates = optimise_system(reactant, calculator, reactant_molecules, force_constant, fmax, max_iter,
-                                      non_convergence_limit, non_convergence_roof, trial_constants)
+    reactant.calc.product = product
+    product.calc.product = reactant
 
-        if coordinates is not None:
-            reactant.set_positions(coordinates)
+    reactant_forces = reactant.calc.compute_forces()
+    product_forces = product.calc.compute_forces()
+
+    max_force = np.sqrt(max([np.max(np.sum(reactant_forces ** 2, axis=1)),
+                             np.max(np.sum(product_forces ** 2, axis=1))]))
+
+    for i in range(max_iter):
+        if max_force < fmax:
+            break
+
+        reactant_coordinates = reactant.get_positions()
+        for force, molecule in zip(reactant_forces, reactant_molecules):
+            reactant_coordinates[molecule] += 0.05 * force
+
+        product_coordinates = product.get_positions()
+        for force, molecule in zip(product_forces, product_molecules):
+            product_coordinates[molecule] += 0.05 * force
+
+        reactant.set_positions(reactant_coordinates)
+        product.set_positions(product_coordinates)
+
+        reactant.calc.atoms = reactant
+        product.calc.atoms = product
+
+        reactant.calc.product = product
+        product.calc.product = reactant
+
+        reactant_forces = reactant.calc.compute_forces()
+        product_forces = product.calc.compute_forces()
+
+        rmax = np.max(np.sum(reactant_forces ** 2, axis=1))
+        pmax = np.max(np.sum(product_forces ** 2, axis=1))
+        max_force = np.sqrt(max([rmax, pmax]))
+
+        logging.info(f'{i}   {rmax}    {pmax}    {max_force}')
+
+
+class TestCalculator(_CustomBaseCalculator):
+    def __init__(self,
+                 reactant_molecules: list[list[int]],
+                 product_molecules: list[list[int]],
+                 product: ase.Atoms,
+                 reactivity_matrix: dok_matrix,
+                 bond_forming_force_constant: float = 1.0,
+                 correlated_placement_force_constant: float = 1.0,
+                 hard_sphere_force_constant: float = 50.0,
+                 calc_reactant: bool = True,
+                 label=None,
+                 atoms=None,
+                 directory='.',
+                 **kwargs):
+        self.product = product
+        self.bfc = BondFormingCalculator(reactant_molecules, reactivity_matrix, bond_forming_force_constant, calc_reactant)
+        self.cpc = CorrelatedPlacementCalculator(reactant_molecules, product_molecules, product, reactivity_matrix,
+                                                 correlated_placement_force_constant, calc_reactant=calc_reactant)
+        self.hsc = HardSphereCalculator(reactant_molecules, hard_sphere_force_constant)
+
+        super().__init__(reactant_molecules, 0, label=label, atoms=atoms, directory=directory, **kwargs)
+
+    def compute_forces(self) -> np.ndarray:
+        self.bfc.atoms = self.atoms.copy()
+        forces = self.bfc.compute_forces()
+
+        self.cpc.atoms = self.atoms.copy()
+        self.cpc.product_coordinates = self.product.get_positions()
+        forces += self.cpc.compute_forces()
+
+        self.hsc.atoms = self.atoms.copy()
+        forces += self.hsc.compute_forces()
+
+        return forces
 
 
 class BondFormingCalculator(_CustomBaseCalculator):
@@ -58,11 +127,13 @@ class BondFormingCalculator(_CustomBaseCalculator):
                  molecules: list[list[int]],
                  reactivity_matrix: dok_matrix,
                  force_constant: float = 1.0,
+                 calc_reactant: bool = True,
                  label=None,
                  atoms=None,
                  directory='.',
                  **kwargs):
         self.reactivity_matrix = reactivity_matrix
+        self.calc_reactant = calc_reactant
 
         super().__init__(molecules, force_constant, label=label, atoms=atoms, directory=directory, **kwargs)
 
@@ -102,7 +173,7 @@ class BondFormingCalculator(_CustomBaseCalculator):
                 continue
 
             # Get atoms that will form bonds and that belong to each of these molecules
-            bond_forming_atoms = get_bond_forming_atoms(molecule, other_mol, True, self.reactivity_matrix,
+            bond_forming_atoms = get_bond_forming_atoms(molecule, other_mol, self.calc_reactant, self.reactivity_matrix,
                                                         return_both=True)
             bond_forming_atoms_in_molecule = bond_forming_atoms[0]
             bond_forming_atoms_in_other_mol = bond_forming_atoms[1]
@@ -135,6 +206,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
                  product: ase.Atoms,
                  reactivity_matrix: dok_matrix,
                  force_constant: float = 1.0,
+                 calc_reactant = True,
                  label=None,
                  atoms=None,
                  directory='.',
@@ -142,6 +214,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
         self.reactivity_matrix = reactivity_matrix
         self.product_molecules = product_molecules
         self.product_coordinates = product.get_positions()
+        self.calc_reactant = calc_reactant
 
         super().__init__(reactant_molecules, force_constant, label=label, atoms=atoms, directory=directory, **kwargs)
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import ase
 from ase.optimize import BFGS
 import numpy as np
@@ -38,11 +40,14 @@ class DualBFGS(BFGS):
         self.forces0_reactant = None
         self.forces0_product = None
 
+        self.max_fr = 0
+        self.max_fp = 0
+
         self.H0 = None
 
         self.calc_reactant: bool = True
 
-        super().__init__(ase.Atoms(), restart=None, logfile=logfile, trajectory=None, maxstep=maxstep, master=None,
+        super().__init__(reactant, restart=None, logfile=logfile, trajectory=None, maxstep=maxstep, master=None,
                          alpha=alpha)
 
     def initialize(self):
@@ -50,35 +55,46 @@ class DualBFGS(BFGS):
         self.H0 = np.eye(3 * len(self.atoms)) * self.alpha
 
     def step(self, forces=None):
-        reactant = self.reactant
-        product = self.product
-
-        forces_reactant = reactant.get_forces()
-        forces_product = product.get_forces()
-
-        pos_reactant = reactant.get_positions()
-        pos_product = product.get_positions()
-
         self.calc_reactant = True
+        forces_reactant = self.reactant.get_forces()
+        self.max_fr = np.sqrt((forces_reactant ** 2).sum(axis=1).max())
+        pos_reactant = self.reactant.get_positions()
         dpos_reactant, steplengths_reactant = self.prepare_step(pos_reactant, forces_reactant)
         dpos_reactant = self.determine_step(dpos_reactant, steplengths_reactant)
-        reactant.set_positions(pos_reactant + dpos_reactant)
+        self.reactant.set_positions(pos_reactant + dpos_reactant)
 
         self.calc_reactant = False
+        forces_product = self.product.get_forces()
+        self.max_fp = np.sqrt((forces_product ** 2).sum(axis=1).max())
+        pos_product = self.product.get_positions()
         dpos_product, steplengths_product = self.prepare_step(pos_product, forces_product)
         dpos_product = self.determine_step(dpos_product, steplengths_product)
-        reactant.set_positions(pos_product + dpos_product)
+        self.product.set_positions(pos_product + dpos_product)
 
     def prepare_step(self, pos, forces):
         forces = forces.reshape(-1)
         self.update(pos.flat, forces, self.pos0, self.forces0)
-        omega, V = np.eigh(self.H)
+        omega, V = np.linalg.eigh(self.H)
 
         dpos = np.dot(V, np.dot(forces, V) / np.fabs(omega)).reshape((-1, 3))
+        # Inexplicably, after several iteration the dpos for the reactant starts being non-uniform, causing part of the
+        # molecule to separate from the rest, even though the forces remain uniform (same for every atom)
         steplengths = (dpos ** 2).sum(1) ** 0.5
         self.pos0 = pos.flat.copy()
         self.forces0 = forces.copy()
         return dpos, steplengths
+
+    def converged(self, forces=None):
+        """Did the optimization converge?"""
+        if forces is None:
+            forces = self.reactant.get_forces()
+        return (forces ** 2).sum(axis=1).max() < self.fmax ** 2
+
+    def log(self, forces=None):
+        try:
+            logging.info(f'{self.nsteps}  {self.max_fr}   {self.max_fp}')
+        except TypeError:
+            pass
 
     @property
     def pos0(self):
@@ -121,3 +137,17 @@ class DualBFGS(BFGS):
             self.hessian_reactant = value
         else:
             self.hessian_product = value
+
+    @property
+    def atoms(self):
+        if self.calc_reactant:
+            return self.reactant
+        else:
+            return self.product
+
+    @atoms.setter
+    def atoms(self, value):
+        if self.calc_reactant:
+            self.reactant = value
+        else:
+            self.product = value
