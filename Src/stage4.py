@@ -41,6 +41,7 @@ def reposition_reactants(reactant: ase.Atoms,
 
     force_constants = [bond_forming_force_constant, correlated_placement_force_constant, hard_sphere_force_constant]
 
+    # CDE does the optimisation of combined force rather than sequentially like below
     for calculator, force_constant, trial_constants in zip(calculators, force_constants, trial_constants):
         logging.info(f'Optimising reactant using {calculator}')
         reactant.calc = calculator
@@ -75,7 +76,7 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[i, :] += self.force_constant * (np.cross(-rotational_vector, diff) + rotational_vector)
+                forces[i, :] += self.force_constant * (- np.cross(rotational_vector, diff) + rotational_vector)
 
         return forces
 
