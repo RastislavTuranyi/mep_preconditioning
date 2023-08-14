@@ -385,30 +385,34 @@ class _CustomBaseCalculator(Calculator, ABC):
         pass
 
     def compute_projection(self) -> np.ndarray:
-        coordinates = self.atoms.get_positions()
-        initial_matrix = np.zeros((3 * len(coordinates), 6 * len(self.molecules)))
+        original_coordinates = self.atoms.get_positions()
+        coordinates = np.zeros((3, len(original_coordinates)))
+        for i, coord in enumerate(original_coordinates):
+            coordinates[:, i] = coord
+
+        initial_matrix = np.zeros((6 * len(self.molecules), 3 * len(original_coordinates)))
 
         for i, molecule in enumerate(self.molecules):
             molecule = np.array(molecule)
-            geometric_centre = np.mean(coordinates[molecule], axis=0)
-            coordinates -= geometric_centre
+            geometric_centre = np.mean(coordinates[:, molecule], axis=1)
+            coordinates -= geometric_centre[:, np.newaxis]
 
             indices = molecule * 3
-            index = 6 * i
+            index = 6 * i  # nn
 
             if len(self.molecules) > 1:
-                initial_matrix[indices + 1, index] = coordinates[molecule, 2]
-                initial_matrix[indices + 2, index] = - coordinates[molecule, 1]
+                initial_matrix[index, indices + 1] = coordinates[2, molecule]
+                initial_matrix[index, indices + 2] = - coordinates[1, molecule]
 
-                initial_matrix[indices + 2, index + 1] = coordinates[molecule, 0]
-                initial_matrix[indices + 0, index + 1] = - coordinates[molecule, 2]
+                initial_matrix[index, indices + 2] = coordinates[0, molecule]
+                initial_matrix[index, indices + 0] = - coordinates[2, molecule]
 
-                initial_matrix[indices + 0, index + 2] = coordinates[molecule, 1]
-                initial_matrix[indices + 1, index + 2] = - coordinates[molecule, 0]
+                initial_matrix[index, indices + 0] = coordinates[1, molecule]
+                initial_matrix[index, indices + 1] = - coordinates[0, molecule]
 
-            initial_matrix[indices, index + 3] = 1.
-            initial_matrix[indices + 1, index + 4] = 1.
-            initial_matrix[indices + 2, index + 5] = 1.
+            initial_matrix[index, indices] = 1.
+            initial_matrix[index, indices + 1] = 1.
+            initial_matrix[index, indices + 2] = 1.
 
         dd = np.matmul(initial_matrix, initial_matrix.T)
 

@@ -43,47 +43,37 @@ def reposition_reactants(reactant: ase.Atoms,
     # result = dyn.run(fmax=fmax, steps=max_iter)
     # print(result)
 
-    reactant.calc.atoms = reactant
-    product.calc.atoms = product
-
-    reactant.calc.product = product
-    product.calc.product = reactant
-
-    reactant_forces = reactant.calc.compute_forces()
-    product_forces = product.calc.compute_forces()
-
-    max_force = np.sqrt(max([np.max(np.sum(reactant_forces ** 2, axis=1)),
-                             np.max(np.sum(product_forces ** 2, axis=1))]))
-
     for i in range(max_iter):
-        if max_force < fmax:
-            break
-
-        reactant_coordinates = reactant.get_positions()
-        for force, molecule in zip(reactant_forces, reactant_molecules):
-            reactant_coordinates[molecule] += 0.05 * force
-
-        product_coordinates = product.get_positions()
-        for force, molecule in zip(product_forces, product_molecules):
-            product_coordinates[molecule] += 0.05 * force
-
-        reactant.set_positions(reactant_coordinates)
-        product.set_positions(product_coordinates)
-
         reactant.calc.atoms = reactant
         product.calc.atoms = product
 
         reactant.calc.product = product
         product.calc.product = reactant
 
-        reactant_forces = reactant.calc.compute_forces()
-        product_forces = product.calc.compute_forces()
+        reactant.calc.calculate(reactant)
+        product.calc.calculate(product)
+        reactant_forces = reactant.calc.results['forces']
+        product_forces = product.calc.results['forces']
 
         rmax = np.max(np.sum(reactant_forces ** 2, axis=1))
         pmax = np.max(np.sum(product_forces ** 2, axis=1))
         max_force = np.sqrt(max([rmax, pmax]))
 
         logging.info(f'{i}   {rmax}    {pmax}    {max_force}')
+
+        if max_force < fmax:
+            break
+
+        reactant_coordinates = reactant.get_positions()
+        #for force, molecule in zip(reactant_forces, reactant_molecules):
+        reactant_coordinates -= 0.05 * reactant_forces
+
+        product_coordinates = product.get_positions()
+        #for force, molecule in zip(product_forces, product_molecules):
+        product_coordinates -= 0.05 * product_forces
+
+        reactant.set_positions(reactant_coordinates)
+        product.set_positions(product_coordinates)
 
 
 class TestCalculator(_CustomBaseCalculator):
@@ -130,7 +120,6 @@ class TestCalculator(_CustomBaseCalculator):
         projection = self.compute_projection()
         f = forces.flatten()
 
-        print(np.shape(forces), np.shape(f), np.shape(projection))
         f = np.matmul(projection, f)
         forces = f.reshape(shape)
 
@@ -162,7 +151,7 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[i, :] += self.force_constant * (- np.cross(rotational_vector, diff) + rotational_vector)
+                forces[i, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
 
         return forces
 
@@ -243,7 +232,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[i, :] += self.force_constant * (np.cross(-rotational_vector, diff) + rotational_vector)
+                forces[i, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
 
         return forces
 
