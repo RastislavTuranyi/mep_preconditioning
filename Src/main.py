@@ -56,37 +56,47 @@ def main(start=None, end=None, both=None):
     logging.debug(f'Reactivity matrix obtained: {repr(reactivity_matrix.items())}')
 
     logging.info('** Starting STAGE 1 **')
-    stage1.reposition_reactants(reactant, reactant_indices, reactivity_matrix)
-    stage1.reposition_products(reactant, product, reactant_indices, product_indices, reactivity_matrix)
+    index, is_reactant = stage1.find_largest_molecule(reactant_indices, product_indices)
+    logging.info(f'The largest molecule is in the {"REACTANT" if is_reactant else "PRODUCT"} system: {index}')
+
+    if is_reactant:
+        main_system, other_system = reactant, product
+        main_indices, other_indices = reactant_indices, product_indices
+    else:
+        main_system, other_system = product, reactant
+        main_indices, other_indices = product_indices, reactant_indices
+
+    stage1.reposition_largest_molecule_system(main_system, main_indices, index, reactivity_matrix)
+    stage1.reposition_other_system(main_system, other_system, main_indices, other_indices, reactivity_matrix)
 
     if STEPWISE_OUTPUT:
-        ase.io.write('stage1.xyz', [reactant, product])
+        ase.io.write('stage1_new.xyz', [reactant, product])
 
-    logging.info('** Starting STAGE 2 **')
-    stage2.fix_overlaps(reactant, reactant_indices)
-    stage2.fix_overlaps(product, product_indices)
-
-    if STEPWISE_OUTPUT:
-        ase.io.write('stage2.xyz', [reactant, product])
-
-    reactant_molecules = separate_molecules(reactant, reactant_indices)
-    product_molecules = separate_molecules(product, product_indices)
-
-    logging.info('** Starting STAGE 3 **')
-    stage3.reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
-    stage3.reorient_products(product, product_indices, reactant, reactant_indices)
-
-    if STEPWISE_OUTPUT:
-        ase.io.write('stage3.xyz', [reactant, product])
-
-    logging.info('** Starting STAGE 4 **')
-    try:
-        stage4.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
-    except Exception:
-
-        if STEPWISE_OUTPUT:
-            ase.io.write('stage4.xyz', [reactant, product])
-
-        raise
+    # logging.info('** Starting STAGE 2 **')
+    # stage2.fix_overlaps(reactant, reactant_indices)
+    # stage2.fix_overlaps(product, product_indices)
+    #
+    # if STEPWISE_OUTPUT:
+    #     ase.io.write('stage2.xyz', [reactant, product])
+    #
+    # reactant_molecules = separate_molecules(reactant, reactant_indices)
+    # product_molecules = separate_molecules(product, product_indices)
+    #
+    # logging.info('** Starting STAGE 3 **')
+    # stage3.reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
+    # stage3.reorient_products(product, product_indices, reactant, reactant_indices)
+    #
+    # if STEPWISE_OUTPUT:
+    #     ase.io.write('stage3.xyz', [reactant, product])
+    #
+    # logging.info('** Starting STAGE 4 **')
+    # try:
+    #     stage4.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
+    # except Exception:
+    #
+    #     if STEPWISE_OUTPUT:
+    #         ase.io.write('stage4.xyz', [reactant, product])
+    #
+    #     raise
 
     logging.info('Finished')

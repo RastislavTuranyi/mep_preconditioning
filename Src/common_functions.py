@@ -88,8 +88,11 @@ def get_bond_forming_atoms(molecule1: Union[ase.Atoms, list[int]],
                            molecule2: Union[ase.Atoms, list[int]],
                            reactants: bool,
                            reactivity_matrix: dok_matrix,
-                           return_both: bool = False) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
-    search = 1 if reactants else -1
+                           return_both: bool = False,
+                           search: Union[list[int], None] = None) -> Union[np.ndarray, tuple[np.ndarray, np.ndarray]]:
+    if search is None:
+        search = [1] if reactants else [-1]
+
 
     try:
         atoms1, atoms2 = molecule1.get_tags(), molecule2.get_tags()
@@ -98,7 +101,7 @@ def get_bond_forming_atoms(molecule1: Union[ase.Atoms, list[int]],
 
     bonding_atoms_molecule1, bonding_atoms_molecule2 = [], []
     for key, val in reactivity_matrix.items():
-        if val == search:
+        if val in search:
             if key[0] in atoms1 and key[1] in atoms2:
                 bonding_atoms_molecule1.append(key[0])
                 bonding_atoms_molecule2.append(key[1])
