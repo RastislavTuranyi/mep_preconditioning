@@ -121,6 +121,21 @@ class TestCalculator(_CustomBaseCalculator):
 
         return forces
 
+    def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
+        super().calculate(atoms, properties, system_changes)
+
+        forces = self.results['forces']
+        shape = np.shape(forces)
+
+        projection = self.compute_projection()
+        f = forces.flatten()
+
+        print(np.shape(forces), np.shape(f), np.shape(projection))
+        f = np.matmul(projection, f)
+        forces = f.reshape(shape)
+
+        self.results['forces'] = forces
+
 
 class BondFormingCalculator(_CustomBaseCalculator):
     def __init__(self,

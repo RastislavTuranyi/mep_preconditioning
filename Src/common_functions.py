@@ -12,6 +12,7 @@ from ase.geometry.analysis import Analysis
 from ase.optimize import BFGS
 
 import numpy as np
+from scipy.linalg.lapack import dsyev
 
 if TYPE_CHECKING:
     from typing import Union
@@ -382,3 +383,39 @@ class _CustomBaseCalculator(Calculator, ABC):
     @abc.abstractmethod
     def compute_forces(self) -> np.ndarray:
         pass
+
+    def compute_projection(self) -> np.ndarray:
+        coordinates = self.atoms.get_positions()
+        initial_matrix = np.zeros((3 * len(coordinates), 6 * len(self.molecules)))
+
+        for i, molecule in enumerate(self.molecules):
+            molecule = np.array(molecule)
+            geometric_centre = np.mean(coordinates[molecule], axis=0)
+            coordinates -= geometric_centre
+
+            indices = molecule * 3
+            index = 6 * i
+
+            if len(self.molecules) > 1:
+                initial_matrix[indices + 1, index] = coordinates[molecule, 2]
+                initial_matrix[indices + 2, index] = - coordinates[molecule, 1]
+
+                initial_matrix[indices + 2, index + 1] = coordinates[molecule, 0]
+                initial_matrix[indices + 0, index + 1] = - coordinates[molecule, 2]
+
+                initial_matrix[indices + 0, index + 2] = coordinates[molecule, 1]
+                initial_matrix[indices + 1, index + 2] = - coordinates[molecule, 0]
+
+            initial_matrix[indices, index + 3] = 1.
+            initial_matrix[indices + 1, index + 4] = 1.
+            initial_matrix[indices + 2, index + 5] = 1.
+
+        dd = np.matmul(initial_matrix, initial_matrix.T)
+
+        eig_values, modified, _ = dsyev(dd)
+        eig_values = np.diag(1 / (eig_values + 10e-8))
+
+        dd = np.matmul(modified, np.matmul(eig_values, modified.T))
+        projection = np.matmul(initial_matrix.T, np.matmul(dd, initial_matrix))
+
+        return projection
