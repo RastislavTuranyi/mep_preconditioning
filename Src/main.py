@@ -12,8 +12,6 @@ import numpy as np
 from Src.common_functions import separate_molecules, get_reactivity_matrix
 import Src.stage1 as stage1
 import Src.stage2 as stage2
-import Src.stage3 as stage3
-import Src.stage4 as stage4
 
 if TYPE_CHECKING:
     from typing import Union
@@ -78,25 +76,5 @@ def main(start=None, end=None, both=None):
 
     if STEPWISE_OUTPUT:
         ase.io.write('stage2.xyz', [reactant, product])
-    #
-    # reactant_molecules = separate_molecules(reactant, reactant_indices)
-    # product_molecules = separate_molecules(product, product_indices)
-    #
-    # logging.info('** Starting STAGE 3 **')
-    # stage3.reorient_reactants(reactant, reactant_molecules, reactivity_matrix)
-    # stage3.reorient_products(product, product_indices, reactant, reactant_indices)
-    #
-    # if STEPWISE_OUTPUT:
-    #     ase.io.write('stage3.xyz', [reactant, product])
-    #
-    # logging.info('** Starting STAGE 4 **')
-    # try:
-    #     stage4.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
-    # except Exception:
-    #
-    #     if STEPWISE_OUTPUT:
-    #         ase.io.write('stage4.xyz', [reactant, product])
-    #
-    #     raise
 
     logging.info('Finished')
