@@ -73,4 +73,4 @@ class HardSphereCalculator(_CustomBaseCalculator):
 
             forces[i, :] = n_atoms * np.sum(np.array(pairwise_forces), axis=0)
 
-        return forces
+        return - forces
