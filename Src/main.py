@@ -67,17 +67,17 @@ def main(start=None, end=None, both=None):
         main_indices, other_indices = product_indices, reactant_indices
 
     stage1.reposition_largest_molecule_system(main_system, main_indices, index, reactivity_matrix)
-    stage1.reposition_other_system(main_system, other_system, main_indices, other_indices, reactivity_matrix)
+    stage1.reposition_other_system(main_system, other_system, main_indices, other_indices)
 
     if STEPWISE_OUTPUT:
         ase.io.write('stage1_new.xyz', [reactant, product])
 
-    # logging.info('** Starting STAGE 2 **')
-    # stage2.fix_overlaps(reactant, reactant_indices)
-    # stage2.fix_overlaps(product, product_indices)
-    #
-    # if STEPWISE_OUTPUT:
-    #     ase.io.write('stage2.xyz', [reactant, product])
+    logging.info('** Starting STAGE 2 **')
+    stage2.fix_overlaps(reactant, reactant_indices)
+    stage2.fix_overlaps(product, product_indices)
+
+    if STEPWISE_OUTPUT:
+        ase.io.write('stage2.xyz', [reactant, product])
     #
     # reactant_molecules = separate_molecules(reactant, reactant_indices)
     # product_molecules = separate_molecules(product, product_indices)
