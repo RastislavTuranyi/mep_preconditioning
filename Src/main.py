@@ -73,8 +73,8 @@ def main(start=None, end=None, both=None):
         ase.io.write('stage1_new.xyz', [reactant, product])
 
     logging.info('** Starting STAGE 2 **')
-    stage2.fix_overlaps(reactant, reactant_indices)
-    stage2.fix_overlaps(product, product_indices)
+    stage2.fix_overlaps(reactant, reactant_indices, reactivity_matrix)
+    stage2.fix_overlaps(product, product_indices, reactivity_matrix)
 
     if STEPWISE_OUTPUT:
         ase.io.write('stage2.xyz', [reactant, product])
