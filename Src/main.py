@@ -34,7 +34,7 @@ def precondition_path_ends(start=None,
                            max_rssd: float = 1.05,
                            force_constant: float = 1.0,
                            fmax: float = 1e-5,
-                           non_convergence_limit: Union[float, None] = 0.001,
+                           non_convergence_limit: Union[float, None] = 0.0001,
                            non_convergence_roof: Union[float, None] = 0.5,
                            trial_constants: Union[
                                None, float, tuple[float], tuple[float, float], tuple[float, float, float],
@@ -65,10 +65,12 @@ def precondition_path_ends(start=None,
         main_system, other_system = product, reactant
         main_indices, other_indices = product_indices, reactant_indices
 
-    logging.info(' * Working on the system containing the largest molecule * ')
-    stage1.reposition_largest_molecule_system(main_system, main_indices, index, reactivity_matrix)
-    logging.info(' * Working on the other system * ')
-    stage1.reposition_other_system(main_system, other_system, main_indices, other_indices, max_iter, max_rssd)
+    # logging.info(' * Working on the system containing the largest molecule * ')
+    # stage1.reposition_largest_molecule_system(main_system, main_indices, index, reactivity_matrix)
+    # logging.info(' * Working on the other system * ')
+    # stage1.reposition_other_system(main_system, other_system, main_indices, other_indices, max_iter, max_rssd)
+    stage1.reposition_everything(main_system, other_system, main_indices, other_indices, index, reactivity_matrix,
+                                 max_iter, fmax, non_convergence_limit, non_convergence_roof)
 
     if stepwise_output:
         ase.io.write('stage1_new.xyz', [reactant, product])
@@ -106,8 +108,8 @@ def read_input(start=None, end=None, both=None):
         product_molecules = separate_molecules(product)
         reactant_molecules = separate_molecules(reactant)
 
-        reactant_indices = [mol.get_tags() for mol in reactant_molecules]
-        product_indices = [mol.get_tags() for mol in product_molecules]
+        reactant_indices = [list(mol.get_tags()) for mol in reactant_molecules]
+        product_indices = [list(mol.get_tags()) for mol in product_molecules]
 
     elif start is not None and end is not None:
         logging.info('First and last images provided in separate files')
@@ -117,7 +119,7 @@ def read_input(start=None, end=None, both=None):
         if len(start) == 1:
             reactant = ase.io.read(start[0])
             reactant_molecules = separate_molecules(reactant)
-            reactant_indices = [mol.get_tags() for mol in reactant_molecules]
+            reactant_indices = [list(mol.get_tags()) for mol in reactant_molecules]
             logging.info('Reactant read successfully from one file')
         else:
             reactant, reactant_molecules, reactant_indices = assemble_system(start)
@@ -126,7 +128,7 @@ def read_input(start=None, end=None, both=None):
         if len(end) == 1:
             product = ase.io.read(end[0])
             product_molecules = separate_molecules(product)
-            product_indices = [mol.get_tags() for mol in product_molecules]
+            product_indices = [list(mol.get_tags()) for mol in product_molecules]
             logging.info('Product read successfully from one file')
         else:
             product, product_molecules, product_indices = assemble_system(end)

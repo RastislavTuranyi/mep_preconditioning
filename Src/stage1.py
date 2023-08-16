@@ -61,6 +61,102 @@ def find_largest_molecule(reactant, product):
         return product_max_arg, False
 
 
+def reposition_everything(main_system: ase.Atoms,
+                          other_system: ase.Atoms,
+                          main_molecules: list[list[int]],
+                          other_molecules: list[list[int]],
+                          largest_molecule_index: int,
+                          reactivity_matrix: dok_matrix,
+                          max_iter: int = 100,
+                          fmax: float = 1e-5,
+                          non_convergence_limit: Union[float, None] = 0.001,
+                          non_convergence_roof: Union[float, None] = 0.5
+                          ):
+    from copy import deepcopy
+    main_coordinates = main_system.get_positions()
+    other_coordinates = other_system.get_positions()
+
+    largest_molecule = main_molecules[largest_molecule_index]
+
+    # Move largest molecule to origin
+    geometric_centre = np.mean(main_coordinates[largest_molecule], axis=0)
+    main_coordinates[largest_molecule, :] -= geometric_centre
+
+    logging.debug(f'Largest molecule moved to origin: {np.mean(main_coordinates[largest_molecule], axis=0)}')
+
+    set_atoms_main = deepcopy(list(largest_molecule))
+    set_atoms_other = []
+
+    main_molecules_copy = deepcopy(main_molecules)
+    main_molecules_copy.pop(largest_molecule_index)
+    other_molecules_copy = deepcopy(other_molecules)
+
+    n_atoms = len(main_system)
+    unoptimised_main, unoptimised_other = [], []
+    while len(set_atoms_main) < n_atoms or len(set_atoms_other) < n_atoms:
+        # Choose which system to optimise a molecule from (the one that has the fewer optimised molecules)
+        if len(set_atoms_main) < len(set_atoms_other):
+            molecules, coordinates, set_atoms = main_molecules_copy, main_coordinates, set_atoms_main
+            target_molecules, target_coordinates = other_molecules, other_coordinates
+        else:
+            molecules, coordinates, set_atoms = other_molecules_copy, other_coordinates, set_atoms_other
+            target_molecules, target_coordinates = main_molecules, main_coordinates
+
+        # Choose molecule to optimise (the largest one)
+        index, largest = 0, 0
+        for i, mol in enumerate(molecules):
+            if len(mol) > largest:
+                index, largest = i, len(mol)
+        molecule = molecules[index]
+
+        previous_centre = np.zeros(3)
+        for i in range(max_iter):
+            shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
+
+            # If the most similar molecule has not been optimised yet
+            try:
+                while closest_molecule in molecules:
+                    adjusted_mols = [mol for mol in target_molecules if mol != closest_molecule]
+                    shared_atoms, closest_molecule = find_most_similar_molecule(molecule, adjusted_mols)
+            except TypeError:
+                unoptimised = unoptimised_main if len(set_atoms_main) < len(set_atoms_other) else unoptimised_other
+                unoptimised.append(molecule)
+                break
+
+            new_centre = np.mean(coordinates[shared_atoms, :], axis=0)
+            if np.allclose(previous_centre, new_centre):
+                break
+            coordinates[molecule, :] += np.mean(target_coordinates[shared_atoms, :], axis=0) - new_centre
+
+            rotation, rssd = Rotation.align_vectors(target_coordinates[shared_atoms], coordinates[shared_atoms])
+            coordinates[molecule, :] = rotation.apply(coordinates[molecule, :])
+
+            previous_centre = new_centre
+
+        set_atoms.extend(molecule)
+        molecules.pop(index)
+
+    main_system.set_positions(main_coordinates)
+    other_system.set_positions(other_coordinates)
+
+    # Move molecules that do not participate far away
+    if unoptimised_main or unoptimised_other:
+        logging.debug(f'Non-reacting molecules found: {unoptimised_main}, {unoptimised_other}')
+
+        for coordinates, unoptimised, system, molecules in zip([main_coordinates, other_coordinates],
+                                                               [unoptimised_main, unoptimised_other],
+                                                               [main_system, other_system],
+                                                               [main_molecules, other_molecules]):
+            # Move each molecule to the origin
+            for molecule in unoptimised:
+                coordinates[molecule, :] -= np.mean(coordinates[molecule], axis=0)
+            system.set_positions(coordinates)
+
+            system.calc = HardSphereNonReactiveCalculator(molecules, reactivity_matrix)
+            dyn = ConstrainedBFGS(system, non_convergence_limit, non_convergence_roof)
+            dyn.run(fmax=fmax, steps=max_iter)
+
+
 def reposition_largest_molecule_system(system: ase.Atoms,
                                        indices: list[list[int]],
                                        largest_molecule_index: int,
@@ -120,7 +216,7 @@ def reposition_largest_molecule_system(system: ase.Atoms,
 
     # Move molecules that do not participate far away
     if non_reacting_molecules:
-        logging.debug(f'Non-reacting molecules found: {non_reacting_molecules}\nStructure vectors: {structure_vectors}')
+        logging.debug(f'Non-reacting molecules found: {non_reacting_molecules}')
 
         # Move each molecule to the origin
         for molecule in non_reacting_molecules:
@@ -168,7 +264,8 @@ def reposition_other_system(main_system: ase.Atoms, other_system: ase.Atoms, mai
     other_system.set_positions(other_coordinates)
 
 
-def find_most_similar_molecule(target_molecule, other_system_molecules):
+def find_most_similar_molecule(target_molecule: list[int],
+                               other_system_molecules: list[list[int]]) -> tuple[np.ndarray, list[int]]:
     most_shared_number = 0
     most_shared_list = []
     index = None
