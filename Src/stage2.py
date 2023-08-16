@@ -85,10 +85,17 @@ class HardSphereCalculator(_CustomBaseCalculator):
                                                                                    self.reactivity_matrix, True,
                                                                                    [1, -1])
 
-                centre_diff = np.mean(coordinates[shared_atoms_affected], axis=0) - np.mean(coordinates[shared_atoms_other], axis=0)
+                try:
+                    centre_diff = np.mean(coordinates[shared_atoms_affected], axis=0) - \
+                                  np.mean(coordinates[shared_atoms_other], axis=0)
+                    multiplier = 1.
+                except IndexError:
+                    centre_diff = np.mean(coordinates[affected_mol], axis=0) - np.mean(coordinates[other_mol], axis=0)
+                    multiplier = 50.
+
                 distance = np.linalg.norm(centre_diff)
                 phi = self.force_constant * (distance - (molecular_radii[i] + molecular_radii[j])) / n
-                pairwise_forces.append(phi * centre_diff / distance)
+                pairwise_forces.append(phi * multiplier * centre_diff / distance)
 
             forces[i, :] = n_atoms * np.sum(np.array(pairwise_forces), axis=0)
 

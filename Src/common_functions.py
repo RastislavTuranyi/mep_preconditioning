@@ -93,7 +93,6 @@ def get_bond_forming_atoms(molecule1: Union[ase.Atoms, list[int]],
     if search is None:
         search = [1] if reactants else [-1]
 
-
     try:
         atoms1, atoms2 = molecule1.get_tags(), molecule2.get_tags()
     except AttributeError:
