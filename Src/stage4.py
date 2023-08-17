@@ -112,18 +112,29 @@ class TestCalculator(_CustomBaseCalculator):
         return forces
 
     def calculate(self, atoms=None, properties=None, system_changes=None) -> None:
-        super().calculate(atoms, properties, system_changes)
+        self.bfc.atoms = self.atoms.copy()
+        submit_forces = self.bfc.compute_forces()
 
-        forces = self.results['forces']
-        shape = np.shape(forces)
+        self.cpc.atoms = self.atoms.copy()
+        self.cpc.product_coordinates = self.product.get_positions()
+        submit_forces += self.cpc.compute_forces()
+
+        self.hsc.atoms = self.atoms.copy()
+        forces = self.hsc.compute_forces()
+
+        for mol, force in zip(self.molecules, forces):
+            for index in mol:
+                submit_forces[index, :] += force
+
+        shape = np.shape(submit_forces)
 
         projection = self.compute_projection()
-        f = forces.flatten()
+        f = submit_forces.flatten()
 
         f = np.matmul(projection, f)
-        forces = f.reshape(shape)
+        submit_forces = f.reshape(shape)
 
-        self.results['forces'] = forces
+        self.results['forces'] = submit_forces
 
 
 class BondFormingCalculator(_CustomBaseCalculator):
@@ -143,7 +154,7 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
     def compute_forces(self) -> np.ndarray:
         coordinates = self.atoms.get_positions()
-        forces = np.zeros((len(self.molecules), 3), dtype=np.float64)
+        forces = np.zeros((len(self.atoms), 3), dtype=np.float64)
 
         for i, molecule in enumerate(self.molecules):
             geometric_centre = np.mean(coordinates[molecule], axis=0)
@@ -151,7 +162,7 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[i, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
+                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
 
         return forces
 
@@ -224,7 +235,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
 
     def compute_forces(self) -> np.ndarray:
         coordinates = self.atoms.get_positions()
-        forces = np.zeros((len(self.molecules), 3), dtype=np.float64)
+        forces = np.zeros((len(self.atoms), 3), dtype=np.float64)
 
         for i, molecule in enumerate(self.molecules):
             geometric_centre = np.mean(coordinates[molecule], axis=0)
@@ -232,7 +243,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[i, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
+                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
 
         return forces
 

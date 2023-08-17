@@ -14,6 +14,7 @@ import Src.stage1 as stage1
 import Src.stage2 as stage2
 import Src.stage3 as stage3
 import Src.stage4 as stage4
+import Src.stage5 as stage5
 
 if TYPE_CHECKING:
     from typing import Union
@@ -90,5 +91,11 @@ def main(start=None, end=None, both=None):
             ase.io.write('stage4.xyz', [reactant, product])
 
         raise
+
+    logging.info('** Starting STAGE 5 **')
+    stage5.reposition_reactants(reactant, reactant_indices, product, product_indices, reactivity_matrix)
+
+    if STEPWISE_OUTPUT:
+        ase.io.write('stage5.xyz', [reactant, product])
 
     logging.info('Finished')
