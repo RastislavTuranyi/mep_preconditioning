@@ -125,6 +125,7 @@ class TestCalculator5(_CustomBaseCalculator):
         submit_forces += self.cpc.compute_forces()
 
         self.hsc.atoms = self.atoms.copy()
+        self.hsc.product_coordinates = self.product.get_positions()
         forces = self.hsc.compute_forces()
 
         self.aahsc.atoms = self.atoms.copy()
@@ -170,7 +171,7 @@ class AtomAtomHardSphereCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
+                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - translational_vector)
 
         return forces
 

@@ -162,7 +162,7 @@ class BondFormingCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
+                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - translational_vector)
 
         return forces
 
@@ -243,7 +243,7 @@ class CorrelatedPlacementCalculator(_CustomBaseCalculator):
 
             for atom in molecule:
                 diff = coordinates[atom] - geometric_centre
-                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - rotational_vector)
+                forces[atom, :] += self.force_constant * (np.cross(rotational_vector, diff) - translational_vector)
 
         return forces
 
