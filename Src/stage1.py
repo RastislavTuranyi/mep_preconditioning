@@ -87,8 +87,10 @@ def reposition_everything(main_system: ase.Atoms,
     set_atoms_main = deepcopy(list(largest_molecule))
     set_atoms_other = []
 
+    optimised_main_molecules, optimised_other_molecules = [], []
+
     main_molecules_copy = deepcopy(main_molecules)
-    main_molecules_copy.pop(largest_molecule_index)
+    optimised_main_molecules.append(main_molecules_copy.pop(largest_molecule_index))
     other_molecules_copy = deepcopy(other_molecules)
 
     n_atoms = len(main_system)
@@ -98,11 +100,13 @@ def reposition_everything(main_system: ase.Atoms,
         if len(set_atoms_main) < len(set_atoms_other):
             logging.debug('Optimising molecule from the MAIN system ...')
             molecules, coordinates, set_atoms = main_molecules_copy, main_coordinates, set_atoms_main
-            target_molecules, target_coordinates = other_molecules, other_coordinates
+            target_molecules, target_coordinates = optimised_other_molecules, other_coordinates
+            optimised_molecules = optimised_main_molecules
         else:
             logging.debug('Optimising molecule from the OTHER system ...')
             molecules, coordinates, set_atoms = other_molecules_copy, other_coordinates, set_atoms_other
-            target_molecules, target_coordinates = main_molecules, main_coordinates
+            target_molecules, target_coordinates = optimised_main_molecules, main_coordinates
+            optimised_molecules = optimised_other_molecules
 
         # Choose molecule to optimise (the largest one)
         index, largest = 0, 0
@@ -114,13 +118,8 @@ def reposition_everything(main_system: ase.Atoms,
 
         previous_centre = np.zeros(3)
         for i in range(max_iter):
-            shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
-
-            # If the most similar molecule has not been optimised yet
             try:
-                while closest_molecule in target_molecules:
-                    target_molecules = [mol for mol in target_molecules if mol != closest_molecule]
-                    shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
+                shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
             except TypeError:
                 unoptimised = unoptimised_main if len(set_atoms_main) < len(set_atoms_other) else unoptimised_other
                 unoptimised.append(molecule)
@@ -129,6 +128,7 @@ def reposition_everything(main_system: ase.Atoms,
             new_centre = np.mean(coordinates[shared_atoms, :], axis=0)
             if np.allclose(previous_centre, new_centre):
                 logging.debug(f'{previous_centre=}    {new_centre=}')
+                optimised_molecules.append(molecules.pop(index))
                 break
 
             # Move the molecule to the geometric centre of the most similar molecule in the complementary system
@@ -140,9 +140,10 @@ def reposition_everything(main_system: ase.Atoms,
             coordinates[molecule, :] = rotation.apply(coordinates[molecule, :])
 
             previous_centre = new_centre
+        else:
+            optimised_molecules.append(molecules.pop(index))
 
         set_atoms.extend(molecule)
-        molecules.pop(index)
 
     main_system.set_positions(main_coordinates)
     other_system.set_positions(other_coordinates)

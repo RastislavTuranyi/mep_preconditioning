@@ -66,7 +66,7 @@ def estimate_molecular_radius(molecule: Union[ase.Atoms, np.ndarray], geometric_
     mean = np.mean(distances)
     std = np.std(distances)
 
-    return mean + 2 * std
+    return mean + 3 * std
 
 
 def get_all_bond_forming_atoms_in_molecule(molecule: ase.Atoms,
