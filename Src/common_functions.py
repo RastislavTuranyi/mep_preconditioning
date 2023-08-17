@@ -359,6 +359,42 @@ class ConstrainedBFGS(BFGS):
             return max_force < self.fmax ** 2 and self.atoms.get_curvature() < 0.0
         return max_force < self.fmax ** 2
 
+    def log(self, forces=None):
+        if forces is None:
+            forces = self.atoms.get_forces()
+        fmax = np.sqrt((forces ** 2).sum(axis=1).max())
+
+        name = self.__class__.__name__
+        if self.nsteps == 0:
+            logging.info('\n')
+            logging.info("%s  %4s  %12s" % (" " * len(name), "Step", "fmax"))
+
+        logging.info("%s:  %3d %15.6f" % (name, self.nsteps, fmax))
+
+    def run(self, fmax=0.05, steps=None):
+        """ call Dynamics.run and keep track of fmax"""
+        self.fmax = fmax
+        if steps is not None:
+            self.max_steps = steps
+
+        # compute initial structure and log the first step
+        forces = self.atoms.get_forces()
+
+        self.log(forces)
+
+        # run the algorithm until converged or max_steps reached
+        while not self.converged(forces) and self.nsteps < self.max_steps:
+            # compute the next step
+            self.step(forces)
+            self.nsteps += 1
+            forces = self.atoms.get_forces()
+
+            # log the step
+            self.log(forces)
+
+        # finally check if algorithm was converged
+        return self.converged()
+
 
 class _CustomBaseCalculator(Calculator, ABC):
     implemented_properties = ['forces', 'energy']
