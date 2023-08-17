@@ -322,7 +322,7 @@ class ConstrainedBFGS(BFGS):
         self._total_iteration: float = 0.0
         self._first_fmax: Union[float, None] = None
 
-        self._increase_limit = increase_limit
+        self._increase_limit = increase_limit ** 2
         self.non_convergence_limit = non_convergence_limit
         self.non_convergence_roof = non_convergence_roof
 
@@ -350,6 +350,9 @@ class ConstrainedBFGS(BFGS):
 
         if max_force > self.non_convergence_roof and (abs(average_until_now - new_average) < self.non_convergence_limit
                                                       or max_force > self._increase_limit * self._first_fmax):
+            logging.debug(f'{abs(average_until_now - new_average) < self.non_convergence_limit}  '
+                          f'{average_until_now=},   {new_average=},   {self.non_convergence_limit=}\n'
+                          f'{max_force > self._increase_limit * self._first_fmax}')
             raise OptimisationNotConvergingError(max_force, average_until_now, new_average)
 
         if hasattr(self.atoms, "get_curvature"):

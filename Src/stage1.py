@@ -96,9 +96,11 @@ def reposition_everything(main_system: ase.Atoms,
     while len(set_atoms_main) < n_atoms or len(set_atoms_other) < n_atoms:
         # Choose which system to optimise a molecule from (the one that has the fewer optimised molecules)
         if len(set_atoms_main) < len(set_atoms_other):
+            logging.debug('Optimising molecule from the MAIN system ...')
             molecules, coordinates, set_atoms = main_molecules_copy, main_coordinates, set_atoms_main
             target_molecules, target_coordinates = other_molecules, other_coordinates
         else:
+            logging.debug('Optimising molecule from the OTHER system ...')
             molecules, coordinates, set_atoms = other_molecules_copy, other_coordinates, set_atoms_other
             target_molecules, target_coordinates = main_molecules, main_coordinates
 
@@ -108,6 +110,7 @@ def reposition_everything(main_system: ase.Atoms,
             if len(mol) > largest:
                 index, largest = i, len(mol)
         molecule = molecules[index]
+        logging.debug(f'Optimising molecule {molecule}')
 
         previous_centre = np.zeros(3)
         for i in range(max_iter):
@@ -115,9 +118,9 @@ def reposition_everything(main_system: ase.Atoms,
 
             # If the most similar molecule has not been optimised yet
             try:
-                while closest_molecule in molecules:
-                    adjusted_mols = [mol for mol in target_molecules if mol != closest_molecule]
-                    shared_atoms, closest_molecule = find_most_similar_molecule(molecule, adjusted_mols)
+                while closest_molecule in target_molecules:
+                    target_molecules = [mol for mol in target_molecules if mol != closest_molecule]
+                    shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
             except TypeError:
                 unoptimised = unoptimised_main if len(set_atoms_main) < len(set_atoms_other) else unoptimised_other
                 unoptimised.append(molecule)
@@ -125,9 +128,14 @@ def reposition_everything(main_system: ase.Atoms,
 
             new_centre = np.mean(coordinates[shared_atoms, :], axis=0)
             if np.allclose(previous_centre, new_centre):
+                logging.debug(f'{previous_centre=}    {new_centre=}')
                 break
-            coordinates[molecule, :] += np.mean(target_coordinates[shared_atoms, :], axis=0) - new_centre
 
+            # Move the molecule to the geometric centre of the most similar molecule in the complementary system
+            endpoint = np.mean(target_coordinates[shared_atoms, :], axis=0)
+            coordinates[molecule, :] += endpoint - new_centre
+
+            # Find Kabsch rotation and rotate the molecule accordingly
             rotation, rssd = Rotation.align_vectors(target_coordinates[shared_atoms], coordinates[shared_atoms])
             coordinates[molecule, :] = rotation.apply(coordinates[molecule, :])
 
@@ -155,6 +163,8 @@ def reposition_everything(main_system: ase.Atoms,
             system.calc = HardSphereNonReactiveCalculator(molecules, reactivity_matrix)
             dyn = ConstrainedBFGS(system, non_convergence_limit, non_convergence_roof)
             dyn.run(fmax=fmax, steps=max_iter)
+    else:
+        logging.debug('All molecules participated in the reaction')
 
 
 def reposition_largest_molecule_system(system: ase.Atoms,
@@ -277,7 +287,7 @@ def find_most_similar_molecule(target_molecule: list[int],
             most_shared_number = len(shared_atoms)
             index = i
 
-    return most_shared_list, other_system_molecules[index]
+    return most_shared_list, list(other_system_molecules[index])
 
 
 class HardSphereNonReactiveCalculator(_CustomBaseCalculator):

@@ -77,9 +77,9 @@ def precondition_path_ends(start=None,
 
     logging.info('*** Starting STAGE 2 ***')
     stage2.fix_overlaps(reactant, reactant_indices, reactivity_matrix, force_constant, fmax, max_iter,
-                        non_convergence_roof, non_convergence_limit, trial_constants)
+                        non_convergence_limit, non_convergence_roof, trial_constants)
     stage2.fix_overlaps(product, product_indices, reactivity_matrix, force_constant, fmax, max_iter,
-                        non_convergence_roof, non_convergence_limit, trial_constants)
+                        non_convergence_limit, non_convergence_roof, trial_constants)
 
     if stepwise_output:
         ase.io.write('stage2.xyz', [reactant, product])
