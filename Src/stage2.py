@@ -7,9 +7,10 @@ from typing import Union
 import ase
 import numpy as np
 from scipy.sparse import dok_matrix
+from scipy.spatial.transform import Rotation
 
 from Src.common_functions import _CustomBaseCalculator, optimise_system, estimate_molecular_radius, \
-                                    get_bond_forming_atoms
+    get_bond_forming_atoms, construct_molecular_reactivity_matrix
 
 
 def determine_overlaps(size: int,
@@ -46,6 +47,45 @@ def fix_overlaps(system: ase.Atoms,
 
     if coordinates is not None:
         system.set_positions(coordinates)
+
+
+def overlay_non_reacting_molecules(static_system: ase.Atoms,
+                                   moving_system: ase.Atoms,
+                                   moving_molecules: list[list[int]],
+                                   reactivity_matrix: dok_matrix,
+                                   max_iter: int = 100):
+    static_coordinates = static_system.get_positions()
+    moving_coordinates = moving_system.get_positions()
+
+    molecular_reactivity_matrix = construct_molecular_reactivity_matrix(moving_molecules, reactivity_matrix)
+
+    non_reacting_molecules = []
+    for molecule, reactivity in zip(moving_molecules, molecular_reactivity_matrix):
+        if np.sum(reactivity) == 0:
+            non_reacting_molecules.append(molecule)
+
+    logging.debug(f'{non_reacting_molecules=}')
+
+    for non_reacting_molecule in non_reacting_molecules:
+        static_geometric_centre = np.mean(static_coordinates[non_reacting_molecule, :], axis=0)
+
+        previous_centre = np.zeros(3)
+        for i in range(max_iter):
+            new_centre = np.mean(moving_coordinates[non_reacting_molecule, :], axis=0)
+            if np.allclose(previous_centre, new_centre):
+                logging.debug(f'{previous_centre=}    {new_centre=}')
+                break
+
+            moving_coordinates[non_reacting_molecule, :] += static_geometric_centre - new_centre
+
+            # Find Kabsch rotation and rotate the molecule accordingly
+            rotation, rssd = Rotation.align_vectors(static_coordinates[non_reacting_molecule],
+                                                    moving_coordinates[non_reacting_molecule])
+            moving_coordinates[non_reacting_molecule, :] = rotation.apply(moving_coordinates[non_reacting_molecule, :])
+
+            previous_centre = new_centre
+
+    moving_system.set_positions(moving_coordinates)
 
 
 class HardSphereCalculator(_CustomBaseCalculator):

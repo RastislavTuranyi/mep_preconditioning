@@ -30,24 +30,6 @@ def compute_structure_vector(coordinates: np.ndarray,
     return np.mean(coordinates[molecule, :] - np.mean(coordinates[reactive_atoms], axis=0), axis=0)
 
 
-def construct_molecular_reactivity_matrix(molecules: list[list[int]], reactivity_matrix: dok_matrix):
-    result = np.zeros((len(molecules), len(molecules)))
-
-    for (key1, key2), val in reactivity_matrix.items():
-        for i, molecule in enumerate(molecules):
-            if key1 in molecule:
-                index1 = i
-            if key2 in molecule:
-                index2 = i
-
-        try:
-            result[index1, index2], result[index2, index1] = val, val
-        except NameError:
-            raise Exception()
-
-    return result
-
-
 def find_largest_molecule(reactant, product):
     num_atom_reactant = np.array([len(mol) for mol in reactant])
     num_atom_product = np.array([len(mol) for mol in product])

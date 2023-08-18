@@ -53,6 +53,24 @@ def compute_alpha_vector(coordinates: np.ndarray,
     return alpha / n_mol
 
 
+def construct_molecular_reactivity_matrix(molecules: list[list[int]], reactivity_matrix: dok_matrix):
+    result = np.zeros((len(molecules), len(molecules)))
+
+    for (key1, key2), val in reactivity_matrix.items():
+        for i, molecule in enumerate(molecules):
+            if key1 in molecule:
+                index1 = i
+            if key2 in molecule:
+                index2 = i
+
+        try:
+            result[index1, index2], result[index2, index1] = val, val
+        except NameError:
+            raise Exception()
+
+    return result
+
+
 def estimate_molecular_radius(molecule: Union[ase.Atoms, np.ndarray], geometric_centre: np.ndarray) -> float:
     distances = np.zeros(len(molecule))
     try:

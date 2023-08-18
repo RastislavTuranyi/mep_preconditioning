@@ -86,6 +86,8 @@ def precondition_path_ends(start=None,
     stage2.fix_overlaps(product, product_indices, reactivity_matrix, force_constant, fmax, max_iter,
                         non_convergence_limit, non_convergence_roof, trial_constants)
 
+    stage2.overlay_non_reacting_molecules(main_system, other_system, other_indices, reactivity_matrix, max_iter)
+
     if stepwise_output:
         ase.io.write('stage2.xyz', [reactant, product])
 
