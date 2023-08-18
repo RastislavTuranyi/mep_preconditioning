@@ -68,10 +68,10 @@ def overlay_non_reacting_molecules(static_system: ase.Atoms,
 
     non_reacting_molecules = []
     for molecule, reactivity in zip(moving_molecules, molecular_reactivity_matrix):
-        if np.sum(reactivity) == 0:
+        if np.all(reactivity == 0):
             non_reacting_molecules.append(molecule)
 
-    logging.debug(f'{non_reacting_molecules=}')
+    logging.debug(f'{non_reacting_molecules=},     {molecular_reactivity_matrix=}')
 
     for non_reacting_molecule in non_reacting_molecules:
         static_geometric_centre = np.mean(static_coordinates[non_reacting_molecule, :], axis=0)
