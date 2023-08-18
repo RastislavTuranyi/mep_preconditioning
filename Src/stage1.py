@@ -122,7 +122,7 @@ def reposition_everything(main_system: ase.Atoms,
                 shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
             except TypeError:
                 unoptimised = unoptimised_main if len(set_atoms_main) < len(set_atoms_other) else unoptimised_other
-                unoptimised.append(molecule)
+                unoptimised.append((molecule, index))
                 molecules.pop(index)
                 break
 
@@ -158,11 +158,11 @@ def reposition_everything(main_system: ase.Atoms,
                                                                [main_system, other_system],
                                                                [main_molecules, other_molecules]):
             # Move each molecule to the origin
-            for molecule in unoptimised:
+            for molecule, _ in unoptimised:
                 coordinates[molecule, :] -= np.mean(coordinates[molecule], axis=0)
             system.set_positions(coordinates)
 
-            system.calc = HardSphereNonReactiveCalculator(molecules, reactivity_matrix)
+            system.calc = HardSphereNonReactiveCalculator(molecules, reactivity_matrix, [i for _, i in unoptimised])
             dyn = ConstrainedBFGS(system, non_convergence_limit, non_convergence_roof)
             dyn.run(fmax=fmax, steps=max_iter)
     else:
@@ -189,6 +189,7 @@ class HardSphereNonReactiveCalculator(_CustomBaseCalculator):
     def __init__(self,
                  molecules: list[list[int]],
                  reactivity_matrix: dok_matrix,
+                 unoptimised: list[int],
                  force_constant: float = 500.0,
                  label=None,
                  atoms=None,
@@ -196,6 +197,7 @@ class HardSphereNonReactiveCalculator(_CustomBaseCalculator):
                  **kwargs):
         self.reactivity_matrix = reactivity_matrix
         self.molecular_reactivity_matrix = construct_molecular_reactivity_matrix(molecules, reactivity_matrix)
+        self.unoptimised = unoptimised
 
         super().__init__(molecules, force_constant, label=label, atoms=atoms, directory=directory, **kwargs)
 
@@ -211,6 +213,9 @@ class HardSphereNonReactiveCalculator(_CustomBaseCalculator):
 
         forces = np.zeros((n_mol, 3), dtype=np.float64)
         for i, affected_mol in enumerate(self.molecules):
+            if i not in self.unoptimised:
+                continue  # Don't move molecules that have been optimised
+
             n_atoms = len(affected_mol)
             n = 3 * n_atoms * np.sum(overlaps[i, :])
 
