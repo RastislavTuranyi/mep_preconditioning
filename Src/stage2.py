@@ -23,7 +23,7 @@ def determine_overlaps(size: int,
         centre_distance = np.linalg.norm(geometric_centres[mol2] - geometric_centres[mol1])
         combined_radius = estimated_radii[mol2] + estimated_radii[mol1]
 
-        if centre_distance < combined_radius:
+        if centre_distance < 1.5 * combined_radius:
             overlaps[mol1, mol2], overlaps[mol2, mol1] = 1, 1
         # Else keep it 0
 
@@ -47,6 +47,13 @@ def fix_overlaps(system: ase.Atoms,
 
     if coordinates is not None:
         system.set_positions(coordinates)
+    else:
+        coordinates = system.get_positions()
+
+    geometric_centres = [np.mean(coordinates[mol], axis=0) for mol in molecules]
+    molecular_radii = [estimate_molecular_radius(coordinates[mol], centre) for mol, centre in
+                       zip(molecules, geometric_centres)]
+    logging.debug(f'{determine_overlaps(len(molecules), geometric_centres, molecular_radii)}')
 
 
 def overlay_non_reacting_molecules(static_system: ase.Atoms,
@@ -125,17 +132,19 @@ class HardSphereCalculator(_CustomBaseCalculator):
                                                                                    self.reactivity_matrix, True,
                                                                                    [1, -1])
 
+                centre_diff = np.mean(coordinates[other_mol], axis=0) - np.mean(coordinates[affected_mol], axis=0)
+                distance = np.linalg.norm(centre_diff)
                 try:
-                    centre_diff = np.mean(coordinates[shared_atoms_affected], axis=0) - \
-                                  np.mean(coordinates[shared_atoms_other], axis=0)
+                    translation_vector = np.mean(coordinates[shared_atoms_affected], axis=0) - \
+                                         np.mean(coordinates[shared_atoms_other], axis=0)
                     multiplier = 1.
                 except IndexError:
-                    centre_diff = np.mean(coordinates[affected_mol], axis=0) - np.mean(coordinates[other_mol], axis=0)
                     multiplier = 50.
+                    translation_vector = centre_diff
 
-                distance = np.linalg.norm(centre_diff)
-                phi = self.force_constant * (distance - (molecular_radii[i] + molecular_radii[j])) / n
-                pairwise_forces.append(phi * multiplier * centre_diff / distance)
+                length = np.linalg.norm(translation_vector)
+                phi = self.force_constant * (distance - 1.5 * (molecular_radii[i] + molecular_radii[j])) / n
+                pairwise_forces.append(phi * multiplier * translation_vector / length)
 
             forces[i, :] = n_atoms * np.sum(np.array(pairwise_forces), axis=0)
 

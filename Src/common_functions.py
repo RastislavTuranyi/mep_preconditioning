@@ -361,6 +361,11 @@ class ConstrainedBFGS(BFGS):
         self._total_fmax += max_force
         self._total_iteration += 1.0
 
+        if self.nsteps < self.max_steps / 5:
+            if hasattr(self.atoms, "get_curvature"):
+                return max_force < self.fmax ** 2 and self.atoms.get_curvature() < 0.0
+            return max_force < self.fmax ** 2
+
         new_average = self._total_fmax / self._total_iteration
 
         if self._first_fmax is None:
