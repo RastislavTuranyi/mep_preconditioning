@@ -169,6 +169,35 @@ def reposition_everything(main_system: ase.Atoms,
         logging.debug('All molecules participated in the reaction')
 
 
+def overlay_system(static_system: ase.Atoms,
+                   moving_system: ase.Atoms,
+                   moving_molecules: list[list[int]],
+                   max_iter: int = 100):
+    static_coordinates = static_system.get_positions()
+    moving_coordinates = moving_system.get_positions()
+
+    for moving_molecule in moving_molecules:
+        static_geometric_centre = np.mean(static_coordinates[moving_molecule, :], axis=0)
+
+        previous_centre = np.zeros(3)
+        for i in range(max_iter):
+            new_centre = np.mean(moving_coordinates[moving_molecule, :], axis=0)
+            if np.allclose(previous_centre, new_centre):
+                logging.debug(f'{previous_centre=}    {new_centre=}')
+                break
+
+            moving_coordinates[moving_molecule, :] += static_geometric_centre - new_centre
+
+            # Find Kabsch rotation and rotate the molecule accordingly
+            rotation, rssd = Rotation.align_vectors(static_coordinates[moving_molecule],
+                                                    moving_coordinates[moving_molecule])
+            moving_coordinates[moving_molecule, :] = rotation.apply(moving_coordinates[moving_molecule, :])
+
+            previous_centre = new_centre
+
+    moving_system.set_positions(moving_coordinates)
+
+
 def find_most_similar_molecule(target_molecule: list[int],
                                other_system_molecules: list[list[int]]) -> tuple[np.ndarray, list[int]]:
     most_shared_number = 0
