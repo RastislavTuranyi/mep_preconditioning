@@ -123,6 +123,7 @@ def reposition_everything(main_system: ase.Atoms,
             except TypeError:
                 unoptimised = unoptimised_main if len(set_atoms_main) < len(set_atoms_other) else unoptimised_other
                 unoptimised.append(molecule)
+                molecules.pop(index)
                 break
 
             new_centre = np.mean(coordinates[shared_atoms, :], axis=0)
