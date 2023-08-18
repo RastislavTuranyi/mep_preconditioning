@@ -47,13 +47,13 @@ def fix_overlaps(system: ase.Atoms,
 
     if coordinates is not None:
         system.set_positions(coordinates)
-    else:
-        coordinates = system.get_positions()
-
-    geometric_centres = [np.mean(coordinates[mol], axis=0) for mol in molecules]
-    molecular_radii = [estimate_molecular_radius(coordinates[mol], centre) for mol, centre in
-                       zip(molecules, geometric_centres)]
-    logging.debug(f'{determine_overlaps(len(molecules), geometric_centres, molecular_radii)}')
+    # else:
+    #     coordinates = system.get_positions()
+    #
+    # geometric_centres = [np.mean(coordinates[mol], axis=0) for mol in molecules]
+    # molecular_radii = [estimate_molecular_radius(coordinates[mol], centre) for mol, centre in
+    #                    zip(molecules, geometric_centres)]
+    # logging.debug(f'{determine_overlaps(len(molecules), geometric_centres, molecular_radii)}')
 
 
 def overlay_non_reacting_molecules(static_system: ase.Atoms,
@@ -132,7 +132,7 @@ class HardSphereCalculator(_CustomBaseCalculator):
                                                                                    self.reactivity_matrix, True,
                                                                                    [1, -1])
 
-                centre_diff = np.mean(coordinates[other_mol], axis=0) - np.mean(coordinates[affected_mol], axis=0)
+                centre_diff = np.mean(coordinates[affected_mol], axis=0) - np.mean(coordinates[other_mol], axis=0)
                 distance = np.linalg.norm(centre_diff)
                 try:
                     translation_vector = np.mean(coordinates[shared_atoms_affected], axis=0) - \

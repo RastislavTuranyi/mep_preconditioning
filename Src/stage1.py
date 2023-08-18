@@ -104,7 +104,7 @@ def reposition_everything(main_system: ase.Atoms,
                 shared_atoms, closest_molecule = find_most_similar_molecule(molecule, target_molecules)
             except TypeError:
                 unoptimised = unoptimised_main if len(set_atoms_main) < len(set_atoms_other) else unoptimised_other
-                unoptimised.append((molecule, index))
+                unoptimised.append((molecule, len(optimised_molecules) + len(unoptimised) + index))
                 molecules.pop(index)
                 break
 
@@ -133,6 +133,7 @@ def reposition_everything(main_system: ase.Atoms,
 
     # Move molecules that do not participate far away
     if unoptimised_main or unoptimised_other:
+        logging.info('   * Placing molecules that do not participate in the reaction *   ')
         logging.debug(f'Non-reacting molecules found: {unoptimised_main}, {unoptimised_other}')
 
         for coordinates, unoptimised, system, molecules in zip([main_coordinates, other_coordinates],

@@ -65,10 +65,8 @@ def precondition_path_ends(start=None,
         main_system, other_system = product, reactant
         main_indices, other_indices = product_indices, reactant_indices
 
-    # logging.info(' * Working on the system containing the largest molecule * ')
-    # stage1.reposition_largest_molecule_system(main_system, main_indices, index, reactivity_matrix)
-    # logging.info(' * Working on the other system * ')
-    # stage1.reposition_other_system(main_system, other_system, main_indices, other_indices, max_iter, max_rssd)
+    logging.info(f'   * Overlaying {"REACTANT" if is_reactant else "PRODUCT"} system onto the '
+                 f'{"PRODUCT" if is_reactant else "REACTANT"} system *   ')
     stage1.reposition_everything(main_system, other_system, main_indices, other_indices, index, reactivity_matrix,
                                  max_iter, fmax, non_convergence_limit, non_convergence_roof)
 
@@ -86,10 +84,10 @@ def precondition_path_ends(start=None,
     stage2.fix_overlaps(product, product_indices, reactivity_matrix, force_constant, fmax, max_iter,
                         non_convergence_limit, non_convergence_roof, trial_constants)
 
-    stage2.overlay_non_reacting_molecules(main_system, other_system, other_indices, reactivity_matrix, max_iter)
-
     if stepwise_output:
         ase.io.write('stage2.xyz', [reactant, product])
+
+    stage2.overlay_non_reacting_molecules(main_system, other_system, other_indices, reactivity_matrix, max_iter)
 
     if len(output) == 1:
         logging.info(f'Writing both reactant and product into ONE file: {output[0]}')
