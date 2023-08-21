@@ -239,7 +239,7 @@ class HardSphereNonReactiveCalculator(_CustomBaseCalculator):
                 centre_diff = np.mean(coordinates[affected_mol], axis=0) - np.mean(coordinates[other_mol], axis=0)
 
                 distance = np.linalg.norm(centre_diff)
-                phi = self.force_constant * (distance - (molecular_radii[i] + molecular_radii[j])) / n
+                phi = self.force_constant * (distance - 1.5 * (molecular_radii[i] + molecular_radii[j])) / n
                 pairwise_forces.append(phi * centre_diff / distance)
 
             forces[i, :] = n_atoms * np.sum(np.array(pairwise_forces), axis=0)
