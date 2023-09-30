@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools"]
+
+[project]
+name = 'mep_preconditioning'
+authors = [
+    {name = "Rastislav Turanyi"}
+]
+description = "Preconditioning of systems before MEP calculations"
+readme = "README.md"
+version = "0.1.0"
+
+[tool.setuptools]
+package-dir = {"mep_preconditioning" = "Src"}

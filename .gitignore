@@ -1,6 +1,7 @@
 # Application-specific
 Tests/*.xyz
 *.xyz
+temp*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
