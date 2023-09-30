@@ -25,9 +25,10 @@ class InputError(Exception):
     pass
 
 
-def precondition_path_ends(start=None,
-                           end=None,
-                           both=None,
+def precondition_path_ends(reactant: ase.Atoms,
+                           product: ase.Atoms,
+                           reactant_indices: list[list[int]],
+                           product_indices: list[list[int]],
                            output: list[str] = ('preconditioned.xyz',),
                            stepwise_output: bool = False,
                            max_iter: int = 1000,
@@ -40,10 +41,6 @@ def precondition_path_ends(start=None,
                                None, float, tuple[float], tuple[float, float], tuple[float, float, float],
                                list[float], np.ndarray] = 10.0):
     logging.basicConfig(level=logging.DEBUG)
-
-    logging.info('Reading input')
-    reactant, product, reactant_molecules, product_molecules, \
-        reactant_indices, product_indices = read_input(start, end, both)
 
     logging.info(f'{len(reactant_indices)} molecules were found in the reactant system.')
     logging.debug(f'   > {reactant_indices}')
@@ -103,7 +100,7 @@ def precondition_path_ends(start=None,
 def read_input(start=None, end=None, both=None):
     if both is not None:
         try:
-            result = ase.io.read(both)
+            result = ase.io.read(both, ':')
             reactant, product = result[0], result[-1]
         except IndexError:
             raise InputError()

@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-from Src.main import precondition_path_ends
+from Src.main import precondition_path_ends, read_input
 
 
 class InputError(Exception):
@@ -20,19 +20,21 @@ def main():
     args = parser.parse_args()
 
     if args.input is not None:
+        start, end, both = None, None, None
+
         if len(args.input) == 1:
             input = args.input[0]
             if isinstance(input, str):
                 # Input is one file containing both images
-                precondition_path_ends(both=input, output=args.output, stepwise_output=args.stepwise_output)
+                both = input
             else:
                 if len(input) == 1:
                     # Input is one file containing both images
-                    precondition_path_ends(both=input[0], output=args.output, stepwise_output=args.stepwise_output)
+                    both = input[0]
                 elif len(input) == 2:
                     # Input is two files, each containing one of the images
-                    precondition_path_ends(start=input[0], end=input[1], output=args.output,
-                                           stepwise_output=args.stepwise_output)
+                    start = input[0]
+                    end = input[1]
                 else:
                     raise InputError()
 
@@ -46,16 +48,19 @@ def main():
             if isinstance(end, str):
                 end = [end]
 
-            precondition_path_ends(start=start, end=end, output=args.output, stepwise_output=args.stepwise_output)
-
-        # -i has been called three times
+        # Option -i has been called three or more times
         else:
             raise InputError()
 
     elif args.start is not None and args.end is not None:
-        precondition_path_ends(start=args.start, end=args.end)
+        start = args.start
+        end = args.end
+        both = None
     else:
         raise Exception()
+
+    reactant, product, _, _, reactant_indices, product_indices = read_input(start, end, both)
+    precondition_path_ends(reactant, product, reactant_indices, product_indices)
 
 
 if __name__ == '__main__':
