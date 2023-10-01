@@ -29,7 +29,7 @@ def precondition_path_ends(reactant: ase.Atoms,
                            product: ase.Atoms,
                            reactant_indices: list[list[int]],
                            product_indices: list[list[int]],
-                           output: list[str] = ('preconditioned.xyz',),
+                           output: Union[list[str], None] = ('preconditioned.xyz',),
                            stepwise_output: bool = False,
                            max_iter: int = 1000,
                            max_rssd: float = 1.05,
@@ -39,7 +39,8 @@ def precondition_path_ends(reactant: ase.Atoms,
                            non_convergence_roof: Union[float, None] = 0.5,
                            trial_constants: Union[
                                None, float, tuple[float], tuple[float, float], tuple[float, float, float],
-                               list[float], np.ndarray] = 10.0):
+                               list[float], np.ndarray] = 10.0
+                           ) -> Union[None, tuple[ase.Atoms, ase.Atoms]]:
     logging.basicConfig(level=logging.DEBUG)
 
     logging.info(f'{len(reactant_indices)} molecules were found in the reactant system.')
@@ -85,6 +86,10 @@ def precondition_path_ends(reactant: ase.Atoms,
         ase.io.write('stage2.xyz', [reactant, product])
 
     stage2.overlay_non_reacting_molecules(main_system, other_system, other_indices, reactivity_matrix, max_iter)
+
+    if output is None:
+        logging.info('Finished')
+        return reactant, product
 
     if len(output) == 1:
         logging.info(f'Writing both reactant and product into ONE file: {output[0]}')
