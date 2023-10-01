@@ -29,6 +29,7 @@ def precondition_path_ends(reactant: ase.Atoms,
                            product: ase.Atoms,
                            reactant_indices: list[list[int]],
                            product_indices: list[list[int]],
+                           reactivity_matrix: Union[dok_matrix, None] = None,
                            output: Union[list[str], None] = ('preconditioned.xyz',),
                            stepwise_output: bool = False,
                            max_iter: int = 1000,
@@ -49,7 +50,8 @@ def precondition_path_ends(reactant: ase.Atoms,
     logging.info(f'{len(product_indices)} molecules were found in the product system.')
     logging.debug(f'   > {product_indices}')
 
-    reactivity_matrix = get_reactivity_matrix(reactant, product)
+    if reactivity_matrix is None:
+        reactivity_matrix = get_reactivity_matrix(reactant, product)
     logging.debug(f'Reactivity matrix obtained: {repr(reactivity_matrix.items())}')
 
     logging.info('** Starting STAGE 1 **')
